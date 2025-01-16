@@ -1,0 +1,30 @@
+
+
+/* Style pour le texte 
+.header-text {
+    text-align: center;
+    /*font-size: 200px;
+    font-weight: bold;
+    margin-top: 20px;
+    color: #333;
+}
+*/
+
+h1 header-text {
+    color: red;
+}
+
+.bloc-gauche {
+    width: 50%;
+    background-color: #de1414; /* Couleur de fond légère */
+    padding: 10px;
+}
+
+.bloc-droite {
+    width: 50%;
+    background-color: #f4ed27; /* Autre couleur de fond légère */
+    padding: 10px;
+}
+
+/* Imports Font Awesome */
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');

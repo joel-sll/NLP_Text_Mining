@@ -1,0 +1,9 @@
+
+
+[server]
+fileWatcherType = "auto"
+
+[theme]
+base="light"
+primaryColor="#00e19f"
+secondaryBackgroundColor="#e6e6e6"
