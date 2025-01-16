@@ -24,4 +24,3 @@ def show_analyse_inter_restaurant():
     st.write("""
     Ici, vous pouvez effectuer des analyses au sein d'un même restaurant.
     """)
-

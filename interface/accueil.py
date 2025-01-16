@@ -1,8 +1,8 @@
-# streamlit app.py
+
 
 import streamlit as st
 from PIL import Image
-from analyse import get_average_rating_per_restaurant, get_top_5_restaurants
+from analyse import get_average_rating_per_restaurant, get_top_5_restaurants, get_restaurant_details
 
 def generate_stars(rating):
     full_stars = int(rating)  # Nombre d'étoiles pleines
@@ -39,7 +39,7 @@ def show_accueil():
     col1, col2, col3 = st.columns(3)
     with col1:
         st.image(image1, use_container_width=True)
-        st.caption("Légende pour l'image 1")
+        st.caption("Vieux Lyon")
     with col2:
         st.image(image2, use_container_width=True)
         st.caption("Basilique de Fourvière")
@@ -97,16 +97,19 @@ def show_accueil():
         top_5_restaurants = get_top_5_restaurants()
 
         for restaurant in top_5_restaurants:
+            # Récupérer les détails complets du restaurant
+            restaurant_details = get_restaurant_details(restaurant['Restaurant Name'])
             stars = generate_stars(restaurant['Average Rating'])
-            cuisine_type = restaurant['Price Range']  # Afficher le type de cuisine directement
-            address = restaurant['Address']
-            postal_code = restaurant['Postal Code']
+            cuisine_type = restaurant_details['CUISINES']
+            address = restaurant_details['ADDRESS']
+            postal_code = restaurant_details['POSTAL_CODE']
+            average_rating = restaurant_details['AVERAGE_RATING']
 
             # Création d'une carte simple
             col_right.markdown(f"""
             <div style="background-color: #e6e6e6; border-radius: 10px; padding: 15px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); margin-bottom: 20px;">
                 <h3 style="font-size: 18px; color: #00e19f;"><span>🍽️</span>{restaurant['Restaurant Name']}</h3>
-                <p style="font-size: 14px;">Note: {restaurant['Average Rating']}/5 {stars}</p>
+                <p style="font-size: 14px;">Note: {average_rating}/5 {stars}</p>
                 <p style="font-size: 14px;">📍 {address}, {postal_code}</p>
                 <p style="font-size: 14px;">🧑‍🍳 Type de cuisine: {cuisine_type}</p>
             </div>
