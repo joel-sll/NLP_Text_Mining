@@ -1,7 +1,7 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant
+from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context
 
 # Fonction pour afficher les étoiles pleines en fonction de la note
 def generate_stars(rating):
@@ -54,17 +54,26 @@ def show_analyse_intra_restaurant():
             .info-label {
                 font-weight: bold;
             }
+            .tendance-bloc{
+                background-color: #e6e6e6;
+                border-radius: 15px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+                font-family: 'New Icon';
+                height: 200px;
+            }
             .kpi-block {
                 background: linear-gradient(145deg, #e6e6e6, #ffffff);
                 border-radius: 15px;
                 padding: 25px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-                margin-bottom: 20px;
-                margin-top:55px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); 
+                margin-top:100px;
                 text-align: center;
                 color: #333;
-                font-family: 'Arial', sans-serif;
-                height: 200px;
+                font-family: ''New Icon';
+                width: 300px;
+                height: 180px;
+                overflow: hidden;
+                box-sizing: border-box;
             }
             .kpi-text {
                 font-size: 18px;
@@ -117,7 +126,7 @@ def show_analyse_intra_restaurant():
     st.markdown('<div class="header">Analyse Intra-Restaurant</div>', unsafe_allow_html=True)
 
     # Créer trois colonnes horizontales
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
     # Première colonne : Liste déroulante des restaurants
     with col1:
@@ -143,7 +152,7 @@ def show_analyse_intra_restaurant():
     # Deuxième colonne : Bloc KPI 1 (affichage de la note moyenne avec étoiles)
     with col2:
         # Affichage du KPI 1 avec un style amélioré
-        st.markdown('</br>', unsafe_allow_html=True)
+        #st.markdown('</br>', unsafe_allow_html=True)
         col2.markdown(f"""
             <div class="kpi-block">
                 <div class="kpi-text">Note moyenne</div>
@@ -165,7 +174,7 @@ def show_analyse_intra_restaurant():
         negatif = sentiment_distribution['Négatif']
 
         # Affichage du KPI 2
-        st.markdown('</br>', unsafe_allow_html=True)
+        #st.markdown('</br>', unsafe_allow_html=True)
         col3.markdown(f"""
             <div class="kpi-block">
                 <div class="kpi-text">Nombre total d'avis</div>
@@ -175,6 +184,16 @@ def show_analyse_intra_restaurant():
                     <span class="info-icon" style="color: #f39c12;">⚪</span>{neutre}
                     <span class="info-icon" style="color: #e74c3c;">🔴</span>{negatif}
                 </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        # Affichage du KPI 3 avec un style amélioré
+        #st.markdown('</br>', unsafe_allow_html=True)
+        col4.markdown(f"""
+            <div class="kpi-block">
+                <div class="kpi-text">Fourchette de prix</div>
+
             </div>
         """, unsafe_allow_html=True)
 
@@ -240,4 +259,59 @@ def show_analyse_intra_restaurant():
 
         st.plotly_chart(fig, use_container_width=True)
  
+    # Ajouter le bloc de tendance des avis par année et par mois
+    with st.container():
+        st.markdown("""
+                    <div class="comments-header" style="text-align:center;">Analyse des Tendances des Avis</div>
+                    <div class="tendance-bloc">
+                
+                    </div>
+        """, unsafe_allow_html=True)
+
+        # Ajouter le bloc de tendance des avis par année et par mois
+    # Ajouter le bloc de tendance des avis par année et par mois
+    with st.container():
+
+        # Ajouter le graphique des sentiments par contexte de visite
+        st.markdown(""" 
+            <br>
+            <div class="comments-header">Distribution des Sentiments des Avis par Contexte</div>
+        """, unsafe_allow_html=True)
+
+        # Récupérer la distribution des sentiments par contexte de visite
+        sentiment_distribution_by_context = get_sentiment_distribution_by_visit_context(selected_restaurant_name)
+
+        # Création du graphique interactif
+        fig = go.Figure()
+
+        # Ajouter des tracés pour chaque contexte de visite
+        for context, sentiment_data in sentiment_distribution_by_context.items():
+            fig.add_trace(go.Bar(
+                x=['Positif', 'Neutre', 'Négatif'],
+                y=[sentiment_data['Positif'], sentiment_data['Neutre'], sentiment_data['Négatif']],
+                name=context.capitalize(),
+                marker=dict(color='#00e19f' if context == 'couples' else 
+                            '#e75480' if context == 'friends' else 
+                            '#f39c12' if context == 'family' else 
+                            '#2ecc71' if context == 'business' else 
+                            '#1ad1ff'),  # Choix de couleur dynamique
+            ))
+
+        # Mettre à jour la mise en page du graphique pour plus de style
+        fig.update_layout(
+            title=f"<span>🍽️</span>{restaurant_details['RESTAURANT_NAME']}",
+            title_x=0.4,
+            barmode='stack',  # Utiliser le mode empilé pour une meilleure visualisation
+            xaxis_title="Sentiment",
+            yaxis_title="Nombre d'Avis",
+            xaxis=dict(tickmode='array'),
+            title_font=dict(size=20, color="black", family="New Icon"),
+            plot_bgcolor='#e6e6e6',  # Fond sombre pour le graphique
+            paper_bgcolor='#e6e6e6',  # Fond sombre autour du graphique
+            margin=dict(t=60, b=30, l=30, r=30),  # Espacement autour du graphique
+            showlegend=True  # Affichage de la légende
+        )
+
+        # Afficher le graphique
+        st.plotly_chart(fig, use_container_width=True)
 

@@ -5,6 +5,7 @@ from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
 from textblob import TextBlob
 import matplotlib.pyplot as plt
+import plotly.express as px
 
 # Load database
 DB_PATH = "./tripadvisor.db"
@@ -65,6 +66,10 @@ def load_restaurant_names():
         cursor.execute(query)
         restaurant_names = [row[0] for row in cursor.fetchall()]
     return restaurant_names
+
+#Fonction pour récupérer les années dans la table reviews
+
+#Fonction pour récupérer les mois dans la table reviews
 
 # Ajouter des colonnes latitude et longitude si elles n'existent pas
 def ensure_lat_lon_columns():
@@ -219,6 +224,18 @@ def get_review_score_distribution(restaurant_name):
     return score_list
 
 # Fonction pour analyser la distribution des sentiments
+def analyze_sentiment(text):
+    """
+    Analyse le sentiment d'un texte et retourne 'Positif', 'Neutre' ou 'Négatif'.
+    """
+    polarity = TextBlob(text).sentiment.polarity
+    if polarity > 0.1:
+        return 'Positif'
+    elif polarity < -0.1:
+        return 'Négatif'
+    else:
+        return 'Neutre'
+
 def get_sentiment_distribution_for_restaurant(restaurant_name):
     """
     Analyse les sentiments des avis pour un restaurant donné.
@@ -235,15 +252,6 @@ def get_sentiment_distribution_for_restaurant(restaurant_name):
         cursor.execute(query, (restaurant_name,))
         reviews = [row[0] for row in cursor.fetchall()]
 
-    def analyze_sentiment(text):
-        polarity = TextBlob(text).sentiment.polarity
-        if polarity > 0.1:
-            return 'Positif'
-        elif polarity < -0.1:
-            return 'Négatif'
-        else:
-            return 'Neutre'
-
     sentiments = [analyze_sentiment(review) for review in reviews]
     sentiment_counts = pd.Series(sentiments).value_counts()
 
@@ -252,3 +260,35 @@ def get_sentiment_distribution_for_restaurant(restaurant_name):
         'Neutre': sentiment_counts.get('Neutre', 0),
         'Négatif': sentiment_counts.get('Négatif', 0)
     }
+
+# Analyse avis selon visit_context
+def get_sentiment_distribution_by_visit_context(restaurant_name):
+    """
+    Analyse les sentiments des avis pour chaque type de VISIT_CONTEXT pour un restaurant donné.
+    Retourne la distribution des sentiments par contexte de visite (Positif, Neutre, Négatif).
+    """
+    query = """
+        SELECT rv.REVIEW_BODY, rv.VISIT_CONTEXT
+        FROM REVIEWS rv
+        INNER JOIN RESTAURANT r ON rv.ID_RESTAURANT = r.ID_RESTAURANT
+        WHERE r.RESTAURANT_NAME = ?
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, (restaurant_name,))
+        reviews_data = cursor.fetchall()
+
+    sentiment_by_context = {'couples': {'Positif': 0, 'Neutre': 0, 'Négatif': 0},
+                           'friends': {'Positif': 0, 'Neutre': 0, 'Négatif': 0},
+                           'family': {'Positif': 0, 'Neutre': 0, 'Négatif': 0},
+                           'business': {'Positif': 0, 'Neutre': 0, 'Négatif': 0},
+                           'solo': {'Positif': 0, 'Neutre': 0, 'Négatif': 0}}
+
+    for review_body, visit_context in reviews_data:
+        sentiment = analyze_sentiment(review_body)
+        if visit_context in sentiment_by_context:
+            sentiment_by_context[visit_context][sentiment] += 1
+
+    return sentiment_by_context
+
+#------------------------ TENDANCE ANALYSIS
