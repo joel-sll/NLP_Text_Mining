@@ -166,16 +166,17 @@ def show_analyse_intra_restaurant():
     # Deuxième colonne : Bloc KPI 1 (affichage de la note moyenne avec étoiles)
     with col2:
         # Affichage du KPI 1 avec un style amélioré
-        #st.markdown('</br>', unsafe_allow_html=True)
+        st.markdown('</br>', unsafe_allow_html=True)
+        
+        url_to_scrape = st.text_input("URL to scrape", placeholder="http://www.tripadvisor.com")
         col2.markdown(f"""
-            <div class="kpi-block">
+            <div class="restaurant-info">
                 <div class="kpi-text">Note moyenne</div>
                 <div class="kpi-number">{restaurant_details['AVERAGE_RATING']}</div>
                 <div class="kpi-stars">{generate_stars(restaurant_details['AVERAGE_RATING'])}</div>
             </div>
         """, unsafe_allow_html=True)
 
-    # Troisième colonne : Bloc KPI 2 (affichage du nombre total d'avis)
     # Troisième colonne : Bloc KPI 2 (affichage du nombre total d'avis)
     with col3:
         # Récupérer le nombre total d'avis pour le restaurant
@@ -188,9 +189,13 @@ def show_analyse_intra_restaurant():
         negatif = sentiment_distribution['Négatif']
 
         # Affichage du KPI 2
-        #st.markdown('</br>', unsafe_allow_html=True)
+        st.markdown('</br>', unsafe_allow_html=True)
+        
+        st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
+        start_scraping = st.button("start scraping")
+        #st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
         col3.markdown(f"""
-            <div class="kpi-block">
+            <div class="restaurant-info">
                 <div class="kpi-text">Nombre total d'avis</div>
                 <div class="kpi-number">{total_reviews}</div>
                 <div class="kpi-like">
@@ -203,9 +208,11 @@ def show_analyse_intra_restaurant():
 
     with col4:
         # Affichage du KPI 3 avec un style amélioré
-        #st.markdown('</br>', unsafe_allow_html=True)
+        st.markdown('</br>', unsafe_allow_html=True)
+        
+        st.markdown('<div style="height: 84px;"></div>', unsafe_allow_html=True)
         col4.markdown(f"""
-            <div class="kpi-block">
+            <div class="restaurant-info">
                 <div class="kpi-text">Fourchette de prix</div>
                 <div class="kpi-number">{restaurant_details["PRICE_RANGE"]}</div>
             </div>
