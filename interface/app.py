@@ -10,8 +10,8 @@ with st.sidebar:
 
     selected = option_menu(
         "", 
-        ["Accueil", "Analyse intra-restaurant", "Analyse inter-restaurant", "Carte"],  # Options de menu
-        icons=["house", "graph-up", "bar-chart-steps", "map"],
+        ["Accueil", "Scrapping et Parsing", "Analyse intra-restaurant", "Analyse inter-restaurant", "Carte"],  # Options de menu
+        icons=["house","terminal", "graph-up", "bar-chart-steps", "map-fill"],
         menu_icon="none",  # Icône du menu
         #default_index=0,  # Option par défaut
     )
@@ -22,6 +22,9 @@ with st.sidebar:
 if selected == "Accueil":
     import accueil
     accueil.show_accueil()
+elif selected == "Scrapping et Parsing":
+    import scrapping_parsing
+    scrapping_parsing.show_scrapping()
 elif selected == "Analyse intra-restaurant":
     import analyse_intra
     analyse_intra.show_analyse_intra_restaurant()
