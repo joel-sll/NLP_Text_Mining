@@ -1,7 +1,7 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context
+from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context, get_monthly_review_trends
 
 # Fonction pour afficher les étoiles pleines en fonction de la note
 def generate_stars(rating):
@@ -58,6 +58,11 @@ def show_analyse_intra_restaurant():
                 background-color: #e6e6e6;
                 border-radius: 15px;
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+                font-family: 'New Icon';
+                height: 200px;
+            }
+            .avis-selected-bloc{
+                background-color: #e6e6e6;
                 font-family: 'New Icon';
                 height: 200px;
             }
@@ -255,24 +260,49 @@ def show_analyse_intra_restaurant():
             family="New Icon"
         ),
         margin=dict(t=60)  # Ajouter un peu d'espace pour le titre
-    )
+        )
 
         st.plotly_chart(fig, use_container_width=True)
+
+    
+
  
     # Ajouter le bloc de tendance des avis par année et par mois
     with st.container():
         st.markdown("""
+                    <br>
                     <div class="comments-header" style="text-align:center;">Analyse des Tendances des Avis</div>
-                    <div class="tendance-bloc">
-                
-                    </div>
-        """, unsafe_allow_html=True)
 
-        # Ajouter le bloc de tendance des avis par année et par mois
-    # Ajouter le bloc de tendance des avis par année et par mois
+        """, unsafe_allow_html=True)
+        # Filtres pour l'année et le mois
+        col1, col2 = st.columns(2)
+        with col1:
+            year = st.selectbox("Année", options=list(range(2015, 2026)), index=2)  # 2017 est à l'index 2 (index 0 = 2015)
+        with col2:
+                month = None  # Mois est fixé à "Tous"
+                st.selectbox("Mois", options=["Tous"], index=0, disabled=True)
+        # Appeler la fonction pour récupérer les données
+        trends_data = get_monthly_review_trends(selected_restaurant_name, year, month)
+
+        # Afficher le graphique
+        if not trends_data.empty:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=trends_data['REVIEW_MONTH'], y=trends_data['average_score'], mode='lines+markers'))
+            fig.update_layout(
+                title="Évolution des Notes Moyennes",
+                xaxis_title="Mois",
+                yaxis_title="Note Moyenne",
+                template="plotly_white"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Aucune donnée disponible pour les filtres sélectionnés.")
+
+
+    # Ajouter le graphique des sentiments par contexte de visite
     with st.container():
 
-        # Ajouter le graphique des sentiments par contexte de visite
+
         st.markdown(""" 
             <br>
             <div class="comments-header">Distribution des Sentiments des Avis par Contexte</div>
@@ -290,11 +320,11 @@ def show_analyse_intra_restaurant():
                 x=['Positif', 'Neutre', 'Négatif'],
                 y=[sentiment_data['Positif'], sentiment_data['Neutre'], sentiment_data['Négatif']],
                 name=context.capitalize(),
-                marker=dict(color='#00e19f' if context == 'couples' else 
-                            '#e75480' if context == 'friends' else 
-                            '#f39c12' if context == 'family' else 
-                            '#2ecc71' if context == 'business' else 
-                            '#1ad1ff'),  # Choix de couleur dynamique
+                marker=dict(color='#4eccc9' if context == 'couples' else 
+                            '#e57373' if context == 'friends' else 
+                            '#f7c99e' if context == 'family' else 
+                            '#81c784' if context == 'business' else 
+                            '#64b5f6'),  # Choix de couleur dynamique
             ))
 
         # Mettre à jour la mise en page du graphique pour plus de style
@@ -314,4 +344,3 @@ def show_analyse_intra_restaurant():
 
         # Afficher le graphique
         st.plotly_chart(fig, use_container_width=True)
-

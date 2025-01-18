@@ -229,12 +229,13 @@ def analyze_sentiment(text):
     Analyse le sentiment d'un texte et retourne 'Positif', 'Neutre' ou 'Négatif'.
     """
     polarity = TextBlob(text).sentiment.polarity
-    if polarity > 0.1:
+    if polarity > 0.1:  # Positif si la polarité est significativement au-dessus de zéro
         return 'Positif'
-    elif polarity < -0.1:
+    elif polarity < -0.1:  # Négatif si la polarité est significativement en dessous de zéro
         return 'Négatif'
-    else:
+    else:  # Neutre sinon
         return 'Neutre'
+
 
 def get_sentiment_distribution_for_restaurant(restaurant_name):
     """
@@ -291,4 +292,56 @@ def get_sentiment_distribution_by_visit_context(restaurant_name):
 
     return sentiment_by_context
 
+#recuperer avis selon sentiments
+def get_reviews_by_sentiment(restaurant_name, sentiment):
+    """
+    Récupère les avis pour un restaurant donné et filtre selon le sentiment spécifié.
+    Retourne une liste d'avis correspondant à ce sentiment.
+    """
+    query = """
+        SELECT rv.REVIEW_BODY, rv.REVIEW_TITLE, rv.REVIEW_SCORE
+        FROM REVIEWS rv
+        INNER JOIN RESTAURANT r ON rv.ID_RESTAURANT = r.ID_RESTAURANT
+        WHERE r.RESTAURANT_NAME = ?
+    """
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, (restaurant_name,))
+        reviews_data = cursor.fetchall()
+
+    filtered_reviews = []
+    for review in reviews_data:
+        analyzed_sentiment = analyze_sentiment(review[0])
+        print(f"Texte : {review[0]}\nSentiment : {analyzed_sentiment}\n")  # Debugging
+        if analyzed_sentiment == sentiment:
+            filtered_reviews.append({
+                'title': review[1],
+                'body': review[0],
+                'score': review[2]
+            })
+
+    return filtered_reviews
+
+
+
+
 #------------------------ TENDANCE ANALYSIS
+# Fonction pour récupérer les notes moyennes filtrées
+def get_monthly_review_trends(restaurant_name, year, month):
+    # Connexion à la base de données
+    with sqlite3.connect(DB_PATH) as conn:
+        # Définition de la requête SQL
+        query = """
+            SELECT r.REVIEW_YEAR, r.REVIEW_MONTH, AVG(r.REVIEW_SCORE) as average_score
+            FROM reviews r
+            JOIN restaurant rest ON r.ID_RESTAURANT = rest.ID_RESTAURANT
+            WHERE rest.RESTAURANT_NAME = ?
+              AND (? IS NULL OR r.REVIEW_YEAR = ?)
+              AND (? IS NULL OR r.REVIEW_MONTH = ?)
+            GROUP BY r.REVIEW_YEAR, r.REVIEW_MONTH
+            ORDER BY r.REVIEW_YEAR, r.REVIEW_MONTH;
+        """
+        # Exécution de la requête et récupération des résultats dans un DataFrame
+        df = pd.read_sql_query(query, conn, params=(restaurant_name, year, year, month, month))
+        
+    return df
