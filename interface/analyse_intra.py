@@ -1,7 +1,14 @@
+import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context, get_monthly_review_trends
+
+ordered_months = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre"
+]
+
 
 # Fonction pour afficher les étoiles pleines en fonction de la note
 def generate_stars(rating):
@@ -143,6 +150,8 @@ def show_analyse_intra_restaurant():
 
         # Récupérer les détails du restaurant sélectionné
         restaurant_details = get_restaurant_details(selected_restaurant_name)
+        
+        type_cuisines = restaurant_details['CUISINES'] if len(restaurant_details['CUISINES']) != 0 else "Non renseigné"
 
         # Afficher les détails sous le restaurant sélectionné
         col1.markdown(f"""
@@ -150,7 +159,7 @@ def show_analyse_intra_restaurant():
             <div class="restaurant-info-header">{restaurant_details['RESTAURANT_NAME']}</div>
             <p><span class="info-icon">📍</span><span class="info-label">Adresse :</span> {restaurant_details['ADDRESS']}</p>
             <p><span class="info-icon">📮</span><span class="info-label">Code Postal :</span> {restaurant_details['POSTAL_CODE']}</p>
-            <p><span class="info-icon">🍽️</span><span class="info-label">Type de Cuisine :</span> {restaurant_details['CUISINES']}</p>
+            <p><span class="info-icon">🍽️</span><span class="info-label">Type de Cuisine :</span> {type_cuisines}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -198,7 +207,7 @@ def show_analyse_intra_restaurant():
         col4.markdown(f"""
             <div class="kpi-block">
                 <div class="kpi-text">Fourchette de prix</div>
-
+                <div class="kpi-number">{restaurant_details["PRICE_RANGE"]}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -224,7 +233,7 @@ def show_analyse_intra_restaurant():
                 <i>{generate_stars(review['score'])}</i>
             </div>
             """, unsafe_allow_html=True)
-        
+   
     # Bloc droit : Distribution des sentiments
     with right_col:
         st.markdown(""" 
@@ -268,6 +277,7 @@ def show_analyse_intra_restaurant():
 
  
     # Ajouter le bloc de tendance des avis par année et par mois
+
     with st.container():
         st.markdown("""
                     <br>
@@ -283,6 +293,9 @@ def show_analyse_intra_restaurant():
                 st.selectbox("Mois", options=["Tous"], index=0, disabled=True)
         # Appeler la fonction pour récupérer les données
         trends_data = get_monthly_review_trends(selected_restaurant_name, year, month)
+        print(trends_data["REVIEW_MONTH"].unique())
+        trends_data["month_idx"] = trends_data["REVIEW_MONTH"].apply(lambda x:ordered_months.index(x))
+        trends_data = trends_data.sort_values("month_idx")
 
         # Afficher le graphique
         if not trends_data.empty:
@@ -294,9 +307,12 @@ def show_analyse_intra_restaurant():
                 yaxis_title="Note Moyenne",
                 template="plotly_white"
             )
+            fig.update_yaxes(range=[0, 5])
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Aucune donnée disponible pour les filtres sélectionnés.")
+    
+
 
 
     # Ajouter le graphique des sentiments par contexte de visite

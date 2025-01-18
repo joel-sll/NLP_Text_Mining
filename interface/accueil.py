@@ -100,7 +100,7 @@ def show_accueil():
             # Récupérer les détails complets du restaurant
             restaurant_details = get_restaurant_details(restaurant['Restaurant Name'])
             stars = generate_stars(restaurant['Average Rating'])
-            cuisine_type = restaurant_details['CUISINES']
+            cuisine_type = restaurant_details['CUISINES'] if len(restaurant_details['CUISINES']) != 0 else "Non renseigné"
             address = restaurant_details['ADDRESS']
             postal_code = restaurant_details['POSTAL_CODE']
             average_rating = restaurant_details['AVERAGE_RATING']
