@@ -146,7 +146,7 @@ def extract_cuisines(detail):
 def get_restaurant_details(restaurant_name):
     with sqlite3.connect(DB_PATH) as conn:
         query = """
-            SELECT r.ID_RESTAURANT, r.RESTAURANT_NAME, r.ADDRESS, r.DETAILS, pc.POSTAL_CODE, AVG(rv.REVIEW_SCORE) AS AVERAGE_RATING
+            SELECT r.ID_RESTAURANT, r.RESTAURANT_NAME, r.ADDRESS, r.DETAILS, pc.POSTAL_CODE, AVG(rv.REVIEW_SCORE) AS AVERAGE_RATING, r.PHONE_NUMBER
             FROM RESTAURANT r
             LEFT JOIN REVIEWS rv ON r.ID_RESTAURANT = rv.ID_RESTAURANT
             LEFT JOIN POSTAL_CODE pc ON r.POSTAL_CODE = pc.ID_POSTAL_CODE
@@ -167,8 +167,10 @@ def get_restaurant_details(restaurant_name):
         "DETAILS": row[3],
         "POSTAL_CODE": row[4],
         "AVERAGE_RATING": round(row[5], 2) if row[5] else "N/A",
-        "CUISINES": ", ".join(cuisines)  # Ajouter les cuisines extraites
+        "CUISINES": ", ".join(cuisines),  # Ajouter les cuisines extraites
+        "PHONE_NUMBER": row[6] if row[6] else "N/A"  # Ajouter le numéro de téléphone
     }
+
 
 # Fonction pour récupérer le nombre total d'avis pour un restaurant
 def get_total_reviews_for_restaurant(restaurant_name):
@@ -345,3 +347,91 @@ def get_monthly_review_trends(restaurant_name, year, month):
         df = pd.read_sql_query(query, conn, params=(restaurant_name, year, year, month, month))
         
     return df
+
+# Fonction pour récupérer le nombre d'avis
+def get_monthly_review_counts(restaurant_name, year, month):
+    # Connexion à la base de données
+    with sqlite3.connect(DB_PATH) as conn:
+        # Définition de la requête SQL
+        query = """
+            SELECT r.REVIEW_YEAR, r.REVIEW_MONTH, COUNT(r.ID_REVIEW) as review_count
+            FROM reviews r
+            JOIN restaurant rest ON r.ID_RESTAURANT = rest.ID_RESTAURANT
+            WHERE rest.RESTAURANT_NAME = ?
+              AND (? IS NULL OR r.REVIEW_YEAR = ?)
+              AND (? IS NULL OR r.REVIEW_MONTH = ?)
+            GROUP BY r.REVIEW_YEAR, r.REVIEW_MONTH
+            ORDER BY r.REVIEW_YEAR, r.REVIEW_MONTH;
+        """
+        # Exécution de la requête et récupération des résultats dans un DataFrame
+        df = pd.read_sql_query(query, conn, params=(restaurant_name, year, year, month, month))
+        
+    return df
+
+#================== carte fonctionnalités
+import sqlite3
+import pandas as pd
+
+# Charger les coordonnées des restaurants avec détails
+def get_restaurants_with_coordinates_and_details():
+    conn = sqlite3.connect(DB_PATH)
+    query = """
+        SELECT 
+            r.ID_RESTAURANT,
+            r.RESTAURANT_NAME,
+            r.ADDRESS,
+            r.PHONE_NUMBER,
+            r.PRICE_RANGE,
+            r.OVERALL_RATING,
+            c.CITY_NAME,
+            pc.POSTAL_CODE,
+            r.latitude,
+            r.longitude
+        FROM restaurant r
+        JOIN city c ON r.CITY = c.ID_CITY
+        JOIN postal_code pc ON r.POSTAL_CODE = pc.ID_POSTAL_CODE
+        WHERE r.latitude IS NOT NULL AND r.longitude IS NOT NULL;
+    """
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
+
+# Charger les détails d'un restaurant par ID
+def get_restaurant_details_by_id(restaurant_id):
+    conn = sqlite3.connect(DB_PATH)
+    query = """
+        SELECT 
+            r.ID_RESTAURANT,
+            r.RESTAURANT_NAME,
+            r.ADDRESS,
+            r.PHONE_NUMBER,
+            r.PRICE_RANGE,
+            r.OVERALL_RATING,
+            r.DETAILS,
+            r.OPENING_HOURS,
+            c.CITY_NAME,
+            pc.POSTAL_CODE,
+            r.TRAVELERS_CHOICE
+        FROM restaurant r
+        JOIN city c ON r.CITY = c.ID_CITY
+        JOIN postal_code pc ON r.POSTAL_CODE = pc.ID_POSTAL_CODE
+        WHERE r.ID_RESTAURANT = ?;
+    """
+    df = pd.read_sql_query(query, conn, params=(restaurant_id,))
+    conn.close()
+    return df.to_dict(orient="records")[0] if not df.empty else None
+
+#--------------- Photos à afficher dans la page carte
+# Fonction pour récupérer les photos d'un restaurant
+def get_photos_for_restaurant(restaurant_name):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        query = """
+            SELECT p.URL, p.DESCRIPTION 
+            FROM PHOTOS p
+            INNER JOIN RESTAURANT r ON p.ID_RESTAURANT = r.ID_RESTAURANT
+            WHERE r.RESTAURANT_NAME = ?
+        """
+        cursor.execute(query, (restaurant_name,))
+        photos = cursor.fetchall()
+    return photos
