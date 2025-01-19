@@ -1,7 +1,16 @@
+import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant
+from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context, get_monthly_review_trends, update_restaurant_coordinates
+from scraping_utils import is_URL, restaurant_scraper, headers, page_parser2, parse_reviews, flatten_restaurant
+import sqlite_utils
+
+ordered_months = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre"
+]
+
 
 # Fonction pour afficher les étoiles pleines en fonction de la note
 def generate_stars(rating):
@@ -54,17 +63,31 @@ def show_analyse_intra_restaurant():
             .info-label {
                 font-weight: bold;
             }
+            .tendance-bloc{
+                background-color: #e6e6e6;
+                border-radius: 15px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+                font-family: 'New Icon';
+                height: 200px;
+            }
+            .avis-selected-bloc{
+                background-color: #e6e6e6;
+                font-family: 'New Icon';
+                height: 200px;
+            }
             .kpi-block {
                 background: linear-gradient(145deg, #e6e6e6, #ffffff);
                 border-radius: 15px;
                 padding: 25px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-                margin-bottom: 20px;
-                margin-top:55px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); 
+                margin-top:100px;
                 text-align: center;
                 color: #333;
-                font-family: 'Arial', sans-serif;
-                height: 200px;
+                font-family: ''New Icon';
+                width: 300px;
+                height: 180px;
+                overflow: hidden;
+                box-sizing: border-box;
             }
             .kpi-text {
                 font-size: 18px;
@@ -117,7 +140,7 @@ def show_analyse_intra_restaurant():
     st.markdown('<div class="header">Analyse Intra-Restaurant</div>', unsafe_allow_html=True)
 
     # Créer trois colonnes horizontales
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
     # Première colonne : Liste déroulante des restaurants
     with col1:
@@ -129,6 +152,8 @@ def show_analyse_intra_restaurant():
 
         # Récupérer les détails du restaurant sélectionné
         restaurant_details = get_restaurant_details(selected_restaurant_name)
+        
+        type_cuisines = restaurant_details['CUISINES'] if len(restaurant_details['CUISINES']) != 0 else "Non renseigné"
 
         # Afficher les détails sous le restaurant sélectionné
         col1.markdown(f"""
@@ -136,7 +161,7 @@ def show_analyse_intra_restaurant():
             <div class="restaurant-info-header">{restaurant_details['RESTAURANT_NAME']}</div>
             <p><span class="info-icon">📍</span><span class="info-label">Adresse :</span> {restaurant_details['ADDRESS']}</p>
             <p><span class="info-icon">📮</span><span class="info-label">Code Postal :</span> {restaurant_details['POSTAL_CODE']}</p>
-            <p><span class="info-icon">🍽️</span><span class="info-label">Type de Cuisine :</span> {restaurant_details['CUISINES']}</p>
+            <p><span class="info-icon">🍽️</span><span class="info-label">Type de Cuisine :</span> {type_cuisines}</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -144,15 +169,16 @@ def show_analyse_intra_restaurant():
     with col2:
         # Affichage du KPI 1 avec un style amélioré
         st.markdown('</br>', unsafe_allow_html=True)
+        url_to_scrape = st.text_input("URL to scrape", placeholder="http://www.tripadvisor.com")
         col2.markdown(f"""
-            <div class="kpi-block">
+            <div class="restaurant-info">
                 <div class="kpi-text">Note moyenne</div>
                 <div class="kpi-number">{restaurant_details['AVERAGE_RATING']}</div>
                 <div class="kpi-stars">{generate_stars(restaurant_details['AVERAGE_RATING'])}</div>
             </div>
         """, unsafe_allow_html=True)
 
-    # Troisième colonne : Bloc KPI 2 (affichage du nombre total d'avis)
+
     # Troisième colonne : Bloc KPI 2 (affichage du nombre total d'avis)
     with col3:
         # Récupérer le nombre total d'avis pour le restaurant
@@ -163,11 +189,19 @@ def show_analyse_intra_restaurant():
         positif = sentiment_distribution['Positif']
         neutre = sentiment_distribution['Neutre']
         negatif = sentiment_distribution['Négatif']
-
+        
+        col3_1, col3_2 = st.columns(2)
+        with col3_1:
+            st.markdown('<div style="height: 36px;"></div>', unsafe_allow_html=True)
+            start_scraping = st.button("start scraping")
+        with col3_2:
+            scraping_status = st.empty()
         # Affichage du KPI 2
         st.markdown('</br>', unsafe_allow_html=True)
+        
+        #st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
         col3.markdown(f"""
-            <div class="kpi-block">
+            <div class="restaurant-info">
                 <div class="kpi-text">Nombre total d'avis</div>
                 <div class="kpi-number">{total_reviews}</div>
                 <div class="kpi-like">
@@ -175,6 +209,18 @@ def show_analyse_intra_restaurant():
                     <span class="info-icon" style="color: #f39c12;">⚪</span>{neutre}
                     <span class="info-icon" style="color: #e74c3c;">🔴</span>{negatif}
                 </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        # Affichage du KPI 3 avec un style amélioré
+        st.markdown('</br>', unsafe_allow_html=True)
+        
+        st.markdown('<div style="height: 84px;"></div>', unsafe_allow_html=True)
+        col4.markdown(f"""
+            <div class="restaurant-info">
+                <div class="kpi-text">Fourchette de prix</div>
+                <div class="kpi-number">{restaurant_details["PRICE_RANGE"]}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -200,7 +246,7 @@ def show_analyse_intra_restaurant():
                 <i>{generate_stars(review['score'])}</i>
             </div>
             """, unsafe_allow_html=True)
-        
+   
     # Bloc droit : Distribution des sentiments
     with right_col:
         st.markdown(""" 
@@ -236,8 +282,108 @@ def show_analyse_intra_restaurant():
             family="New Icon"
         ),
         margin=dict(t=60)  # Ajouter un peu d'espace pour le titre
-    )
+        )
 
         st.plotly_chart(fig, use_container_width=True)
- 
 
+    
+
+ 
+    # Ajouter le bloc de tendance des avis par année et par mois
+
+    with st.container():
+        st.markdown("""
+                    <br>
+                    <div class="comments-header" style="text-align:center;">Analyse des Tendances des Avis</div>
+
+        """, unsafe_allow_html=True)
+        # Filtres pour l'année et le mois
+        col1, col2 = st.columns(2)
+        with col1:
+            year = st.selectbox("Année", options=list(range(2015, 2026)), index=2)  # 2017 est à l'index 2 (index 0 = 2015)
+        with col2:
+                month = None  # Mois est fixé à "Tous"
+                st.selectbox("Mois", options=["Tous"], index=0, disabled=True)
+        # Appeler la fonction pour récupérer les données
+        trends_data = get_monthly_review_trends(selected_restaurant_name, year, month)
+        # print(trends_data["REVIEW_MONTH"].unique())
+        trends_data["month_idx"] = trends_data["REVIEW_MONTH"].apply(lambda x:ordered_months.index(x))
+        trends_data = trends_data.sort_values("month_idx")
+
+        # Afficher le graphique
+        if not trends_data.empty:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=trends_data['REVIEW_MONTH'], y=trends_data['average_score'], mode='lines+markers'))
+            fig.update_layout(
+                title="Évolution des Notes Moyennes",
+                xaxis_title="Mois",
+                yaxis_title="Note Moyenne",
+                template="plotly_white"
+            )
+            fig.update_yaxes(range=[0, 5])
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Aucune donnée disponible pour les filtres sélectionnés.")
+    
+
+
+
+    # Ajouter le graphique des sentiments par contexte de visite
+    with st.container():
+
+
+        st.markdown(""" 
+            <br>
+            <div class="comments-header">Distribution des Sentiments des Avis par Contexte</div>
+        """, unsafe_allow_html=True)
+
+        # Récupérer la distribution des sentiments par contexte de visite
+        sentiment_distribution_by_context = get_sentiment_distribution_by_visit_context(selected_restaurant_name)
+
+        # Création du graphique interactif
+        fig = go.Figure()
+
+        # Ajouter des tracés pour chaque contexte de visite
+        for context, sentiment_data in sentiment_distribution_by_context.items():
+            fig.add_trace(go.Bar(
+                x=['Positif', 'Neutre', 'Négatif'],
+                y=[sentiment_data['Positif'], sentiment_data['Neutre'], sentiment_data['Négatif']],
+                name=context.capitalize(),
+                marker=dict(color='#4eccc9' if context == 'couples' else 
+                            '#e57373' if context == 'friends' else 
+                            '#f7c99e' if context == 'family' else 
+                            '#81c784' if context == 'business' else 
+                            '#64b5f6'),  # Choix de couleur dynamique
+            ))
+
+        # Mettre à jour la mise en page du graphique pour plus de style
+        fig.update_layout(
+            title=f"<span>🍽️</span>{restaurant_details['RESTAURANT_NAME']}",
+            title_x=0.4,
+            barmode='stack',  # Utiliser le mode empilé pour une meilleure visualisation
+            xaxis_title="Sentiment",
+            yaxis_title="Nombre d'Avis",
+            xaxis=dict(tickmode='array'),
+            title_font=dict(size=20, color="black", family="New Icon"),
+            plot_bgcolor='#e6e6e6',  # Fond sombre pour le graphique
+            paper_bgcolor='#e6e6e6',  # Fond sombre autour du graphique
+            margin=dict(t=60, b=30, l=30, r=30),  # Espacement autour du graphique
+            showlegend=True  # Affichage de la légende
+        )
+
+        # Afficher le graphique
+        st.plotly_chart(fig, use_container_width=True)
+
+
+    
+    if url_to_scrape and start_scraping:
+        if is_URL(url_to_scrape):
+            # restaurant_scraper(url_to_scrape, "./data", headers=headers)
+            scraping_status.markdown("Scraping in progress...")
+            restaurant = page_parser2(url_to_scrape, header=headers, review_parsing= True)
+            flattened_restaurant = flatten_restaurant(restaurant)
+            df = pd.DataFrame.from_dict(flattened_restaurant, orient='index').transpose()
+            db_tripadvisor = sqlite_utils.DButils(path="./", filename="tripadvisor.db", exists_ok=True)
+            db_tripadvisor.insert_restaurant(df)
+            update_restaurant_coordinates()
+            scraping_status.markdown(f"Scraping done.")

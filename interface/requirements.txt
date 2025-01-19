@@ -1,0 +1,16 @@
+beautifulsoup4
+folium
+geopy
+matplotlib
+nltk
+numpy
+pandas
+Pillow
+plotly
+pyarrow
+Requests
+streamlit
+streamlit_folium
+streamlit_option_menu
+textblob
+wordcloud
