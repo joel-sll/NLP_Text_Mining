@@ -132,12 +132,12 @@ def get_restaurants_with_coordinates():
 def extract_cuisines(detail):
     try:
         data = json.loads(detail)
-        cuisines = data.get("CUISINES", "").strip("[]").replace('"', '').split(", ")
-        
+        cuisines = data#.get("CUISINES", "").strip("[]").replace('"', '').split(", ")
+        print(cuisines.keys())
         # Enlever les espaces vides et les éléments vides dans la liste
-        cuisines = [cuisine.strip() for cuisine in cuisines if cuisine.strip()]
+        # cuisines = [cuisine.strip() for cuisine in cuisines if cuisine.strip()]
         
-        return cuisines
+        return cuisines["CUISINES"]
     except Exception as e:
         print(f"Erreur lors de l'extraction des cuisines : {e}")
         return []
@@ -146,7 +146,7 @@ def extract_cuisines(detail):
 def get_restaurant_details(restaurant_name):
     with sqlite3.connect(DB_PATH) as conn:
         query = """
-            SELECT r.ID_RESTAURANT, r.RESTAURANT_NAME, r.ADDRESS, r.DETAILS, pc.POSTAL_CODE, AVG(rv.REVIEW_SCORE) AS AVERAGE_RATING, r.PHONE_NUMBER
+            SELECT r.ID_RESTAURANT, r.RESTAURANT_NAME, r.ADDRESS, r.SERVICES, pc.POSTAL_CODE, AVG(rv.REVIEW_SCORE) AS AVERAGE_RATING, r.PRICE_RANGE
             FROM RESTAURANT r
             LEFT JOIN REVIEWS rv ON r.ID_RESTAURANT = rv.ID_RESTAURANT
             LEFT JOIN POSTAL_CODE pc ON r.POSTAL_CODE = pc.ID_POSTAL_CODE
@@ -156,7 +156,9 @@ def get_restaurant_details(restaurant_name):
         cursor = conn.cursor()
         cursor.execute(query, (restaurant_name,))
         row = cursor.fetchone()
-
+    
+    
+    
     # Extraire les cuisines du détail
     cuisines = extract_cuisines(row[3])  # row[3] correspond à la colonne DETAILS
     
@@ -164,13 +166,13 @@ def get_restaurant_details(restaurant_name):
         "ID_RESTAURANT": row[0],
         "RESTAURANT_NAME": row[1],
         "ADDRESS": row[2],
-        "DETAILS": row[3],
+        "SERVICES": row[3],
         "POSTAL_CODE": row[4],
         "AVERAGE_RATING": round(row[5], 2) if row[5] else "N/A",
-        "CUISINES": ", ".join(cuisines),  # Ajouter les cuisines extraites
-        "PHONE_NUMBER": row[6] if row[6] else "N/A"  # Ajouter le numéro de téléphone
+        "PRICE_RANGE": row[6],
+        "CUISINES": cuisines
+        
     }
-
 
 # Fonction pour récupérer le nombre total d'avis pour un restaurant
 def get_total_reviews_for_restaurant(restaurant_name):
@@ -347,142 +349,3 @@ def get_monthly_review_trends(restaurant_name, year, month):
         df = pd.read_sql_query(query, conn, params=(restaurant_name, year, year, month, month))
         
     return df
-
-# Fonction pour récupérer le nombre d'avis
-def get_monthly_review_counts(restaurant_name, year, month):
-    # Connexion à la base de données
-    with sqlite3.connect(DB_PATH) as conn:
-        # Définition de la requête SQL
-        query = """
-            SELECT r.REVIEW_YEAR, r.REVIEW_MONTH, COUNT(r.ID_REVIEW) as review_count
-            FROM reviews r
-            JOIN restaurant rest ON r.ID_RESTAURANT = rest.ID_RESTAURANT
-            WHERE rest.RESTAURANT_NAME = ?
-              AND (? IS NULL OR r.REVIEW_YEAR = ?)
-              AND (? IS NULL OR r.REVIEW_MONTH = ?)
-            GROUP BY r.REVIEW_YEAR, r.REVIEW_MONTH
-            ORDER BY r.REVIEW_YEAR, r.REVIEW_MONTH;
-        """
-        # Exécution de la requête et récupération des résultats dans un DataFrame
-        df = pd.read_sql_query(query, conn, params=(restaurant_name, year, year, month, month))
-        
-    return df
-
-#================== carte fonctionnalités
-import sqlite3
-import pandas as pd
-
-# Charger les coordonnées des restaurants avec détails
-def get_restaurants_with_coordinates_and_details():
-    conn = sqlite3.connect(DB_PATH)
-    query = """
-        SELECT 
-            r.ID_RESTAURANT,
-            r.RESTAURANT_NAME,
-            r.ADDRESS,
-            r.PHONE_NUMBER,
-            r.PRICE_RANGE,
-            r.OVERALL_RATING,
-            c.CITY_NAME,
-            pc.POSTAL_CODE,
-            r.latitude,
-            r.longitude
-        FROM restaurant r
-        JOIN city c ON r.CITY = c.ID_CITY
-        JOIN postal_code pc ON r.POSTAL_CODE = pc.ID_POSTAL_CODE
-        WHERE r.latitude IS NOT NULL AND r.longitude IS NOT NULL;
-    """
-    df = pd.read_sql_query(query, conn)
-    conn.close()
-    return df
-
-# Charger les détails d'un restaurant par ID
-def get_restaurant_details_by_id(restaurant_id):
-    conn = sqlite3.connect(DB_PATH)
-    query = """
-        SELECT 
-            r.ID_RESTAURANT,
-            r.RESTAURANT_NAME,
-            r.ADDRESS,
-            r.PHONE_NUMBER,
-            r.PRICE_RANGE,
-            r.OVERALL_RATING,
-            r.DETAILS,
-            r.OPENING_HOURS,
-            c.CITY_NAME,
-            pc.POSTAL_CODE,
-            r.TRAVELERS_CHOICE
-        FROM restaurant r
-        JOIN city c ON r.CITY = c.ID_CITY
-        JOIN postal_code pc ON r.POSTAL_CODE = pc.ID_POSTAL_CODE
-        WHERE r.ID_RESTAURANT = ?;
-    """
-    df = pd.read_sql_query(query, conn, params=(restaurant_id,))
-    conn.close()
-    return df.to_dict(orient="records")[0] if not df.empty else None
-
-#--------------- Photos à afficher dans la page carte
-# Fonction pour récupérer les photos d'un restaurant
-def get_photos_for_restaurant(restaurant_name):
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        query = """
-            SELECT p.URL, p.DESCRIPTION 
-            FROM PHOTOS p
-            INNER JOIN RESTAURANT r ON p.ID_RESTAURANT = r.ID_RESTAURANT
-            WHERE r.RESTAURANT_NAME = ?
-        """
-        cursor.execute(query, (restaurant_name,))
-        photos = cursor.fetchall()
-    return photos
-
-#================================
-# Ajouter la fonction d'extraction des horaires d'ouverture
-def extract_opening_hours(opening_hours_list):
-    try:
-        # Suppression des crochets et guillemets de la chaîne
-        opening_hours_list = opening_hours_list.strip('[]').replace('"', '')
-        
-        # Liste des jours de la semaine
-        days_of_week = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"]
-        
-        # Séparer chaque jour et ses horaires
-        opening_hours = opening_hours_list.split(", ")
-        
-        # Créer une liste formatée pour l'affichage
-        formatted_hours = []
-        day_index = 0
-        for i in range(0, len(opening_hours), 2):
-            day = opening_hours[i].strip()  # Jour de la semaine
-            hours = opening_hours[i + 1].strip()  # Horaires ou "Fermé"
-            
-            # Trouver le jour de la semaine correspondant
-            if day_index < len(days_of_week):
-                formatted_hours.append(f"{days_of_week[day_index]} : {hours}")
-                day_index += 1
-        
-        # Retourner les horaires formatés avec chaque jour sur une ligne séparée
-        return "\n".join(formatted_hours)
-    except Exception as e:
-        print(f"Erreur lors de l'extraction des horaires : {e}")
-        return "Non disponibles"
-
-
-
-# Fonction pour récupérer les horaires d'ouverture du restaurant
-def get_opening_hours_for_restaurant(restaurant_name):
-    with sqlite3.connect(DB_PATH) as conn:
-        query = """
-            SELECT r.OPENING_HOURS
-            FROM RESTAURANT r
-            WHERE r.RESTAURANT_NAME = ?
-        """
-        cursor = conn.cursor()
-        cursor.execute(query, (restaurant_name,))
-        row = cursor.fetchone()
-
-    # Si les horaires sont disponibles, les formater, sinon retourner "Non disponibles"
-    if row and row[0]:
-        return extract_opening_hours(row[0])
-    else:
-        return "Non disponibles"

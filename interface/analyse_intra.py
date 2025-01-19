@@ -1,7 +1,8 @@
+import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context, get_monthly_review_trends, get_monthly_review_counts, get_opening_hours_for_restaurant
+from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context, get_monthly_review_trends, get_monthly_review_counts
 
 # Fonction pour afficher les étoiles pleines en fonction de la note
 def generate_stars(rating):
@@ -36,7 +37,7 @@ def show_analyse_intra_restaurant():
                 color: #333;
                 font-size: 16px;
                 font-family: 'Arial', sans-serif;
-                height:280px;
+                height:250px;
             }
             .restaurant-info p {
                 margin: 5px 0;
@@ -71,7 +72,7 @@ def show_analyse_intra_restaurant():
                 border-radius: 15px;
                 padding: 25px;
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); 
-                margin-top:120px;
+                margin-top:100px;
                 text-align: center;
                 color: #333;
                 font-family: ''New Icon';
@@ -143,6 +144,8 @@ def show_analyse_intra_restaurant():
 
         # Récupérer les détails du restaurant sélectionné
         restaurant_details = get_restaurant_details(selected_restaurant_name)
+        
+        type_cuisines = restaurant_details['CUISINES'] if len(restaurant_details['CUISINES']) != 0 else "Non renseigné"
 
         # Afficher les détails sous le restaurant sélectionné
         col1.markdown(f"""
@@ -150,24 +153,24 @@ def show_analyse_intra_restaurant():
             <div class="restaurant-info-header">{restaurant_details['RESTAURANT_NAME']}</div>
             <p><span class="info-icon">📍</span><span class="info-label">Adresse :</span> {restaurant_details['ADDRESS']}</p>
             <p><span class="info-icon">📮</span><span class="info-label">Code Postal :</span> {restaurant_details['POSTAL_CODE']}</p>
-            <p><span class="info-icon">📞</span><span class="info-label">Téléphone :</span> {restaurant_details['PHONE_NUMBER']}</p>
-            <p><span class="info-icon">🍽️</span><span class="info-label">Type de Cuisine :</span> {restaurant_details['CUISINES']}</p>
+            <p><span class="info-icon">🍽️</span><span class="info-label">Type de Cuisine :</span> {type_cuisines}</p>
         </div>
         """, unsafe_allow_html=True)
 
     # Deuxième colonne : Bloc KPI 1 (affichage de la note moyenne avec étoiles)
     with col2:
         # Affichage du KPI 1 avec un style amélioré
-        #st.markdown('</br>', unsafe_allow_html=True)
+        st.markdown('</br>', unsafe_allow_html=True)
+        
+        url_to_scrape = st.text_input("URL to scrape", placeholder="http://www.tripadvisor.com")
         col2.markdown(f"""
-            <div class="kpi-block">
+            <div class="restaurant-info">
                 <div class="kpi-text">Note moyenne</div>
                 <div class="kpi-number">{restaurant_details['AVERAGE_RATING']}</div>
                 <div class="kpi-stars">{generate_stars(restaurant_details['AVERAGE_RATING'])}</div>
             </div>
         """, unsafe_allow_html=True)
 
-    # Troisième colonne : Bloc KPI 2 (affichage du nombre total d'avis)
     # Troisième colonne : Bloc KPI 2 (affichage du nombre total d'avis)
     with col3:
         # Récupérer le nombre total d'avis pour le restaurant
@@ -180,9 +183,13 @@ def show_analyse_intra_restaurant():
         negatif = sentiment_distribution['Négatif']
 
         # Affichage du KPI 2
-        #st.markdown('</br>', unsafe_allow_html=True)
+        st.markdown('</br>', unsafe_allow_html=True)
+        
+        st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
+        start_scraping = st.button("start scraping")
+        #st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
         col3.markdown(f"""
-            <div class="kpi-block">
+            <div class="restaurant-info">
                 <div class="kpi-text">Nombre total d'avis</div>
                 <div class="kpi-number">{total_reviews}</div>
                 <div class="kpi-like">
@@ -196,18 +203,13 @@ def show_analyse_intra_restaurant():
     # Bloc horaires d'ouverture dans col4
     # Bloc horaires d'ouverture dans col4 (sans tableau)
     with col4:
-        # Récupérer les horaires d'ouverture du restaurant
-        opening_hours = get_opening_hours_for_restaurant(selected_restaurant_name)
-        
-        # Afficher les horaires dans le bloc
-        if opening_hours != "Non disponibles":
-            # Créer une liste avec les jours et les horaires
-            formatted_hours = opening_hours.split("\n")
-            
+        # Affichage du KPI 3 avec un style amélioré
+        #st.markdown('</br>', unsafe_allow_html=True)
         col4.markdown(f"""
-            <div class="restaurant-info">
-                <div class="restaurant-info-header">Horaires d'ouverture</div>
-                <div class="restaurant-info-content">
+            <div class="kpi-block">
+                <div class="kpi-text">Fourchette de prix</div>
+
+            </div>
         """, unsafe_allow_html=True)
 
         # Vérifier si les horaires sont disponibles
@@ -257,7 +259,7 @@ def show_analyse_intra_restaurant():
                 <i>{generate_stars(review['score'])}</i>
             </div>
             """, unsafe_allow_html=True)
-        
+   
     # Bloc droit : Distribution des sentiments
     with right_col:
         st.markdown(""" 
@@ -301,6 +303,7 @@ def show_analyse_intra_restaurant():
 
  
     # Ajouter le bloc de tendance des avis par année et par mois
+
     with st.container():
         st.markdown("""
                     <br>
@@ -316,10 +319,11 @@ def show_analyse_intra_restaurant():
                 st.selectbox("Mois", options=["Tous"], index=0, disabled=True)
         # Appeler la fonction pour récupérer les données
         trends_data = get_monthly_review_trends(selected_restaurant_name, year, month)
-        # Appeler la fonction pour récupérer les données
-        review_counts_data = get_monthly_review_counts(selected_restaurant_name, year, month)
-    
-        # Afficher le graphique tendance note moyenne
+        print(trends_data["REVIEW_MONTH"].unique())
+        trends_data["month_idx"] = trends_data["REVIEW_MONTH"].apply(lambda x:ordered_months.index(x))
+        trends_data = trends_data.sort_values("month_idx")
+
+        # Afficher le graphique
         if not trends_data.empty:
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=trends_data['REVIEW_MONTH'], y=trends_data['average_score'], mode='lines+markers'))
@@ -329,29 +333,13 @@ def show_analyse_intra_restaurant():
                 yaxis_title="Note Moyenne",
                 template="plotly_white"
             )
+            fig.update_yaxes(range=[0, 5])
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Aucune donnée disponible pour les filtres sélectionnés.")
+    
 
-        # Afficher le graphique tendance nombre d'avis
-        if not review_counts_data.empty:
-            fig_counts = go.Figure()
-            fig_counts.add_trace(go.Bar(
-                x=review_counts_data['REVIEW_MONTH'],
-                y=review_counts_data['review_count'],
-                marker_color='rgba(100, 149, 237, 0.6)',
-                name="Nombre d'Avis"
-            ))
-            fig_counts.update_layout(
-                title="Nombre d'Avis par Mois et par Année",
-                xaxis_title="Mois",
-                yaxis_title="Nombre d'Avis",
-                template="plotly_white",
-                barmode='group'
-            )
-            st.plotly_chart(fig_counts, use_container_width=True)
-        else:
-            st.info("Aucune donnée disponible pour les filtres sélectionnés.")
+
 
     # Ajouter le graphique des sentiments par contexte de visite
     with st.container():
