@@ -54,7 +54,7 @@ with sqlite3.connect(DB_PATH) as conn:
         ON r.COUNTRY = country.ID_COUNTRY
     '''
     df = pd.read_sql_query(query, conn)
-    df["CLAIMED"] = df["CLAIMED"].apply(lambda x: x[0] !=0)
+    df["CLAIMED"] = df["CLAIMED"].apply(lambda x: (x[0] !=0) if isinstance(x, bytes) else x)
     
 # Streamlit App
 def show_analyse_inter_restaurant():
