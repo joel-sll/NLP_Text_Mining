@@ -10,11 +10,18 @@ import plotly.express as px
 # Load database
 DB_PATH = "./tripadvisor.db"
 
-with sqlite3.connect(DB_PATH) as conn:
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = cursor.fetchall()
-    print("Tables dans la base de données :", tables)
+# with sqlite3.connect(DB_PATH) as conn:
+    # cursor = conn.cursor()
+    # cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    # tables = cursor.fetchall()
+    # print("Tables dans la base de données :", tables)
+    # for table in tables:
+        # cursor.execute(f"PRAGMA table_info({table[0]});")
+        # columns_info = cursor.fetchall()
+
+        #Extract column names
+        # columns = [column[1] for column in columns_info]  # column[1] corresponds to the 'name' field
+        # print(f"{table} : Columns:{columns}")
 
 with sqlite3.connect(DB_PATH) as conn:
     query = "SELECT * FROM reviews"
@@ -332,7 +339,7 @@ def get_monthly_review_trends(restaurant_name, year, month):
     with sqlite3.connect(DB_PATH) as conn:
         # Définition de la requête SQL
         query = """
-            SELECT r.REVIEW_YEAR, r.REVIEW_MONTH, AVG(r.REVIEW_SCORE) as average_score
+            SELECT r.REVIEW_YEAR, r.REVIEW_MONTH, AVG(r.REVIEW_SCORE) as average_score, COUNT(r.REVIEW_SCORE) as n_review
             FROM reviews r
             JOIN restaurant rest ON r.ID_RESTAURANT = rest.ID_RESTAURANT
             WHERE rest.RESTAURANT_NAME = ?

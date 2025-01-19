@@ -306,21 +306,53 @@ def show_analyse_intra_restaurant():
                 st.selectbox("Mois", options=["Tous"], index=0, disabled=True)
         # Appeler la fonction pour récupérer les données
         trends_data = get_monthly_review_trends(selected_restaurant_name, year, month)
-        # print(trends_data["REVIEW_MONTH"].unique())
+        for month in ordered_months:
+            if month not in trends_data["REVIEW_MONTH"].values:
+                trends_data = pd.concat([trends_data, pd.DataFrame({"REVIEW_MONTH": [month], "average_score": [0], "n_review": [0]})], ignore_index=True)
+        
         trends_data["month_idx"] = trends_data["REVIEW_MONTH"].apply(lambda x:ordered_months.index(x))
-        trends_data = trends_data.sort_values("month_idx")
+        trends_data = trends_data.sort_values("month_idx")       
+        
+        #print(trends_data.head())
+
 
         # Afficher le graphique
         if not trends_data.empty:
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=trends_data['REVIEW_MONTH'], y=trends_data['average_score'], mode='lines+markers'))
+
+            # Add number of reviews as bar trace
+            fig.add_trace(go.Bar(
+                x=trends_data['REVIEW_MONTH'].astype(str),
+                y=trends_data['n_review'],
+                name='Number of Reviews',
+                yaxis='y1',  # Associate this trace with the first y-axis
+                marker_color='blue'
+            ))
+
+            # Add average score as line trace
+            fig.add_trace(go.Scatter(
+                x=trends_data['REVIEW_MONTH'].astype(str),
+                y=trends_data['average_score'],
+                name='Average Score',
+                mode='lines+markers',
+                line=dict(color='orange'),
+                yaxis='y2'  # Associate this trace with the second y-axis
+            ))
+
+            # Update layout to include two y-axes
             fig.update_layout(
-                title="Évolution des Notes Moyennes",
-                xaxis_title="Mois",
-                yaxis_title="Note Moyenne",
-                template="plotly_white"
+                title='Number of Reviews and Average Score per Month',
+                xaxis_title='Month',
+                yaxis_title='Number of Reviews',
+                yaxis2=dict(
+                    title='Average Score',
+                    overlaying='y',
+                    side='right',
+                    range=[0,5]
+                ),
+                barmode='group',
+                xaxis_tickangle=-45
             )
-            fig.update_yaxes(range=[0, 5])
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Aucune donnée disponible pour les filtres sélectionnés.")
@@ -328,51 +360,7 @@ def show_analyse_intra_restaurant():
 
 
 
-    # Ajouter le graphique des sentiments par contexte de visite
-    with st.container():
 
-
-        st.markdown(""" 
-            <br>
-            <div class="comments-header">Distribution des Sentiments des Avis par Contexte</div>
-        """, unsafe_allow_html=True)
-
-        # Récupérer la distribution des sentiments par contexte de visite
-        sentiment_distribution_by_context = get_sentiment_distribution_by_visit_context(selected_restaurant_name)
-
-        # Création du graphique interactif
-        fig = go.Figure()
-
-        # Ajouter des tracés pour chaque contexte de visite
-        for context, sentiment_data in sentiment_distribution_by_context.items():
-            fig.add_trace(go.Bar(
-                x=['Positif', 'Neutre', 'Négatif'],
-                y=[sentiment_data['Positif'], sentiment_data['Neutre'], sentiment_data['Négatif']],
-                name=context.capitalize(),
-                marker=dict(color='#4eccc9' if context == 'couples' else 
-                            '#e57373' if context == 'friends' else 
-                            '#f7c99e' if context == 'family' else 
-                            '#81c784' if context == 'business' else 
-                            '#64b5f6'),  # Choix de couleur dynamique
-            ))
-
-        # Mettre à jour la mise en page du graphique pour plus de style
-        fig.update_layout(
-            title=f"<span>🍽️</span>{restaurant_details['RESTAURANT_NAME']}",
-            title_x=0.4,
-            barmode='stack',  # Utiliser le mode empilé pour une meilleure visualisation
-            xaxis_title="Sentiment",
-            yaxis_title="Nombre d'Avis",
-            xaxis=dict(tickmode='array'),
-            title_font=dict(size=20, color="black", family="New Icon"),
-            plot_bgcolor='#e6e6e6',  # Fond sombre pour le graphique
-            paper_bgcolor='#e6e6e6',  # Fond sombre autour du graphique
-            margin=dict(t=60, b=30, l=30, r=30),  # Espacement autour du graphique
-            showlegend=True  # Affichage de la légende
-        )
-
-        # Afficher le graphique
-        st.plotly_chart(fig, use_container_width=True)
 
 
     
