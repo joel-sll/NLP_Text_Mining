@@ -435,3 +435,54 @@ def get_photos_for_restaurant(restaurant_name):
         cursor.execute(query, (restaurant_name,))
         photos = cursor.fetchall()
     return photos
+
+#================================
+# Ajouter la fonction d'extraction des horaires d'ouverture
+def extract_opening_hours(opening_hours_list):
+    try:
+        # Suppression des crochets et guillemets de la chaîne
+        opening_hours_list = opening_hours_list.strip('[]').replace('"', '')
+        
+        # Liste des jours de la semaine
+        days_of_week = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"]
+        
+        # Séparer chaque jour et ses horaires
+        opening_hours = opening_hours_list.split(", ")
+        
+        # Créer une liste formatée pour l'affichage
+        formatted_hours = []
+        day_index = 0
+        for i in range(0, len(opening_hours), 2):
+            day = opening_hours[i].strip()  # Jour de la semaine
+            hours = opening_hours[i + 1].strip()  # Horaires ou "Fermé"
+            
+            # Trouver le jour de la semaine correspondant
+            if day_index < len(days_of_week):
+                formatted_hours.append(f"{days_of_week[day_index]} : {hours}")
+                day_index += 1
+        
+        # Retourner les horaires formatés avec chaque jour sur une ligne séparée
+        return "\n".join(formatted_hours)
+    except Exception as e:
+        print(f"Erreur lors de l'extraction des horaires : {e}")
+        return "Non disponibles"
+
+
+
+# Fonction pour récupérer les horaires d'ouverture du restaurant
+def get_opening_hours_for_restaurant(restaurant_name):
+    with sqlite3.connect(DB_PATH) as conn:
+        query = """
+            SELECT r.OPENING_HOURS
+            FROM RESTAURANT r
+            WHERE r.RESTAURANT_NAME = ?
+        """
+        cursor = conn.cursor()
+        cursor.execute(query, (restaurant_name,))
+        row = cursor.fetchone()
+
+    # Si les horaires sont disponibles, les formater, sinon retourner "Non disponibles"
+    if row and row[0]:
+        return extract_opening_hours(row[0])
+    else:
+        return "Non disponibles"

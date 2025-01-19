@@ -1,7 +1,7 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context, get_monthly_review_trends, get_monthly_review_counts
+from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context, get_monthly_review_trends, get_monthly_review_counts, get_opening_hours_for_restaurant
 
 # Fonction pour afficher les étoiles pleines en fonction de la note
 def generate_stars(rating):
@@ -193,15 +193,47 @@ def show_analyse_intra_restaurant():
             </div>
         """, unsafe_allow_html=True)
 
+    # Bloc horaires d'ouverture dans col4
+    # Bloc horaires d'ouverture dans col4 (sans tableau)
     with col4:
-        # Affichage du KPI 3 avec un style amélioré
-        #st.markdown('</br>', unsafe_allow_html=True)
+        # Récupérer les horaires d'ouverture du restaurant
+        opening_hours = get_opening_hours_for_restaurant(selected_restaurant_name)
+        
+        # Afficher les horaires dans le bloc
+        if opening_hours != "Non disponibles":
+            # Créer une liste avec les jours et les horaires
+            formatted_hours = opening_hours.split("\n")
+            
         col4.markdown(f"""
-            <div class="kpi-block">
-                <div class="kpi-text">Fourchette de prix</div>
-
-            </div>
+            <div class="restaurant-info">
+                <div class="restaurant-info-header">Horaires d'ouverture</div>
+                <div class="restaurant-info-content">
         """, unsafe_allow_html=True)
+
+        # Vérifier si les horaires sont disponibles
+        if opening_hours != "Non disponibles":
+            formatted_hours = opening_hours.split("\n")
+            
+            # Remplir la liste avec les jours et les horaires
+            col4.markdown(f"""
+                <ul style="list-style-type: none; padding: 0; font-size: 14px; color: #333;">
+            """, unsafe_allow_html=True)
+            
+            for line in formatted_hours:
+                day, hour = line.split(" : ")
+                col4.markdown(f"""
+                    <li><strong>{day} :</strong> {hour}</li>
+                """, unsafe_allow_html=True)
+            
+            col4.markdown("</ul>", unsafe_allow_html=True)
+        else:
+            col4.markdown(f"""
+                <p style="font-size: 14px; color: #333;">Non disponibles</p>
+            """, unsafe_allow_html=True)
+
+        col4.markdown("</div></div>", unsafe_allow_html=True)
+
+
 
 
 

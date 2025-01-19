@@ -1,0 +1,11 @@
+streamlit
+plotly
+PIL
+streamlit-option-menu
+sqlite3
+pandas
+json
+geopy
+textblob
+folium
+streamlit_folium
