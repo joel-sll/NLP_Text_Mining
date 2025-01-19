@@ -1,19 +1,9 @@
 import sqlite3
 import os
-try:
-    import pyarrow
-except:
-    %pip install pyarrow
-    import pyarrow
-
-try:
-    import pandas as pd
-except:
-    %pip install pandas
-    import pandas as pd
-
+import pyarrow
+import pandas as pd
 import json
-import numpy
+import numpy as np
 import re
 
 country_schema = {
@@ -132,6 +122,7 @@ class DButils:
         placeholders = ", ".join("?" for _ in data)
         
         sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+
         #print(sql)
         try:
             with sqlite3.connect(self.PATH_TO_DB) as conn:
@@ -156,7 +147,8 @@ class DButils:
         restaurant_dict["overall_rating"] = restaurant_dict.pop("rating")
         
         if "fonctionnalités" in restaurant.columns:
-            restaurant_dict["fonctionnalités"]["Fonctionnalités"] = restaurant_dict["fonctionnalités"]["Fonctionnalités"].tolist()
+            if isinstance(restaurant_dict["fonctionnalités"]["Fonctionnalités"], np.ndarray):
+                restaurant_dict["fonctionnalités"]["Fonctionnalités"] = restaurant_dict["fonctionnalités"]["Fonctionnalités"].tolist()
             restaurant_dict["services"] = json.dumps(restaurant_dict.pop("fonctionnalités"), ensure_ascii=False)
 
         if "traveler's choice" in restaurant.columns:
@@ -241,7 +233,7 @@ class DButils:
                     r_dict["visit_month"] = None
                     r_dict["visit_year"] = None
                     r_dict["visit_context"] = None
-                db_tripadvisor.insert("REVIEWS", r_dict)
+                self.insert("REVIEWS", r_dict)
         return restaurant_dict
 
 

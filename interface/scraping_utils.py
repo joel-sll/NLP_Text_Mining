@@ -2,24 +2,10 @@ import sys
 import os
 import time
 import requests
-try:
-    import pyarrow
-except:
-    %pip install pyarrow
-    import pyarrow
-try:
-    import bs4
-    from bs4 import BeautifulSoup
-except:
-    %pip install beautifulsoup4
-    import bs4
-    from bs4 import BeautifulSoup
-try:
-    import pandas as pd
-except:
-    %pip install pandas
-    import pandas as pd
-
+import pyarrow
+import bs4
+from bs4 import BeautifulSoup
+import pandas as pd
 from urllib.parse import urlparse
 import re
 import traceback
@@ -63,19 +49,24 @@ headers = {
         "Cache-Control": "max-age=0",
     }
     
-def restaurant_scraper(urls: list[str]|str, save_path: str, headers: dict[str]):
+def restaurant_scraper(urls: list[str], save_path: str, headers: dict[str]):
     if isinstance(urls, str):
         urls = [urls]
+        print("to list")
     elif not isinstance(urls, list):  
+        print("failed")
         raise Exception("urls should either be a string or a list of string.")
     names = [urls[i].split('-')[4] for i in range(len(urls))]
     for i in range(len(urls)):
         filename = os.path.join(save_path, f"{names[i]}.html")
         os.makedirs(save_path, exist_ok=True)
-        r = requests.get(urls[i], headers= headers)
-        with open(filename, "w") as f:
+        while True:
+            r = requests.get(urls[i], headers= headers)
+            if r.status_code == 200: break
+            else: time.sleep(5)
+        with open(filename, "w", encoding="utf-8") as f:
             f.write(r.text)
-            time.sleep(5)
+        if i < len(urls): time.sleep(5)
             
 def parse_reviews(restaurant: dict[any], headers: dict[str:str], wait_time: int = 10) -> list[Reviews]:
     REVIEWS_PER_PAGE = 15
@@ -86,7 +77,7 @@ def parse_reviews(restaurant: dict[any], headers: dict[str:str], wait_time: int 
     n_review_pages =  n_reviews // 15 + (1 if n_reviews % 15 != 0 else 0)
     reviews = []
     
-    for n_page in range(n_review_pages+1):
+    for n_page in range(n_review_pages):
         fail = 0
         url.insert(4, f"or{REVIEWS_PER_PAGE * n_page}")
         try:
@@ -106,7 +97,7 @@ def parse_reviews(restaurant: dict[any], headers: dict[str:str], wait_time: int 
                 raise Exception("Could not get the page 10 times. Please try again later")            
         url.pop(4)
         soup_r = BeautifulSoup(r.text).find_all("div", {"data-automation": "reviewCard"})
-        print(f"parsing reviews page {n_page} out of {n_review_pages}.")
+        print(f"parsing reviews page {n_page+1} out of {n_review_pages}.")
         for current_review in soup_r:
             # Field with visit date and context can be missing
             if len(list(current_review.children)) == 7:
@@ -156,7 +147,7 @@ def get_file(file_path: str) -> str:
     return html
     
 def page_parser2(file_path: str, header: dict[str:any], 
-        attempt: int = 1) -> Restaurant:
+        attempt: int = 1, review_parsing: bool = True) -> Restaurant:
     if is_URL(file_path):
         print("downloading page")
         html = get_page(file_path, header)
@@ -199,16 +190,19 @@ def page_parser2(file_path: str, header: dict[str:any],
     carousel_tag = soup.find("div", {"data-section-signature": "photo_viewer"})
     pictures_links = set(link.split("?")[0] for link in [tag["srcset"].split(" ")[0] for tag in carousel_tag.select("source")])
     restaurant_dict["photos"] = pictures_links
+    
     restaurant_dict["address"] = soup.select_one("div[data-automation=restaurantsMapLinkOnName], span[data-automation=restaurantsMapLinkOnName]").text
-    restaurant_dict["phone_number"] = soup.find("path", {"d": "m6.405 2.13 5.173 5.177-1.826 2.725.096.207c.166.348.427.828.8 1.347.707.986 1.796 2.082 3.383 2.7l3.167-1.355 4.672 4.675-3.153 4.2-.32.037-.086-.745.086.745h-.004l-.006.001-.018.002-.06.005q-.074.007-.205.012c-.175.008-.424.01-.737-.004a12.5 12.5 0 0 1-2.557-.398c-2.11-.547-4.89-1.795-7.668-4.575-2.782-2.783-4.037-5.574-4.591-7.69a12.7 12.7 0 0 1-.41-2.568 9 9 0 0 1 .004-.946l.005-.06.002-.017v-.009s.001-.002.747.08l-.746-.082.036-.325zM3.63 6.067q-.003.191.01.488c.027.537.115 1.318.362 2.262.493 1.883 1.624 4.432 4.2 7.01 2.573 2.574 5.111 3.697 6.984 4.183.94.243 1.715.328 2.25.352q.294.012.485.007l1.969-2.622-3.035-3.037-2.773 1.186-.273-.094c-2.115-.726-3.516-2.137-4.38-3.34a10.5 10.5 0 0 1-.934-1.574 8 8 0 0 1-.29-.682l-.004-.013-.002-.004v-.002s-.001-.001.71-.242l-.711.24-.119-.35 1.567-2.339L6.26 4.108z"}).parent.parent.find_next_sibling().text
-
+    if soup.find("path", {"d": "m6.405 2.13 5.173 5.177-1.826 2.725.096.207c.166.348.427.828.8 1.347.707.986 1.796 2.082 3.383 2.7l3.167-1.355 4.672 4.675-3.153 4.2-.32.037-.086-.745.086.745h-.004l-.006.001-.018.002-.06.005q-.074.007-.205.012c-.175.008-.424.01-.737-.004a12.5 12.5 0 0 1-2.557-.398c-2.11-.547-4.89-1.795-7.668-4.575-2.782-2.783-4.037-5.574-4.591-7.69a12.7 12.7 0 0 1-.41-2.568 9 9 0 0 1 .004-.946l.005-.06.002-.017v-.009s.001-.002.747.08l-.746-.082.036-.325zM3.63 6.067q-.003.191.01.488c.027.537.115 1.318.362 2.262.493 1.883 1.624 4.432 4.2 7.01 2.573 2.574 5.111 3.697 6.984 4.183.94.243 1.715.328 2.25.352q.294.012.485.007l1.969-2.622-3.035-3.037-2.773 1.186-.273-.094c-2.115-.726-3.516-2.137-4.38-3.34a10.5 10.5 0 0 1-.934-1.574 8 8 0 0 1-.29-.682l-.004-.013-.002-.004v-.002s-.001-.001.71-.242l-.711.24-.119-.35 1.567-2.339L6.26 4.108z"}):
+        restaurant_dict["phone_number"] = soup.find("path", {"d": "m6.405 2.13 5.173 5.177-1.826 2.725.096.207c.166.348.427.828.8 1.347.707.986 1.796 2.082 3.383 2.7l3.167-1.355 4.672 4.675-3.153 4.2-.32.037-.086-.745.086.745h-.004l-.006.001-.018.002-.06.005q-.074.007-.205.012c-.175.008-.424.01-.737-.004a12.5 12.5 0 0 1-2.557-.398c-2.11-.547-4.89-1.795-7.668-4.575-2.782-2.783-4.037-5.574-4.591-7.69a12.7 12.7 0 0 1-.41-2.568 9 9 0 0 1 .004-.946l.005-.06.002-.017v-.009s.001-.002.747.08l-.746-.082.036-.325zM3.63 6.067q-.003.191.01.488c.027.537.115 1.318.362 2.262.493 1.883 1.624 4.432 4.2 7.01 2.573 2.574 5.111 3.697 6.984 4.183.94.243 1.715.328 2.25.352q.294.012.485.007l1.969-2.622-3.035-3.037-2.773 1.186-.273-.094c-2.115-.726-3.516-2.137-4.38-3.34a10.5 10.5 0 0 1-.934-1.574 8 8 0 0 1-.29-.682l-.004-.013-.002-.004v-.002s-.001-.001.71-.242l-.711.24-.119-.35 1.567-2.339L6.26 4.108z"}).parent.parent.find_next_sibling().text
+    else:
+        restaurant_dict["phone_number"] = "Non renseigné"
     reviews_tag = soup.select_one("section[id=REVIEWS] div[aria-label='Filtrer les avis']").text
     pattern = r"([A-Za-zéè ]+)(\d+)"
 
     restaurant_dict["detailed_rating"] = {key: val for key, val in re.findall(pattern, reviews_tag)}
     
-    if is_URL(file_path):
-        reviews = parse_reviews(restaurant=restaurant_dict, header=header)
+    if is_URL(file_path) and review_parsing:
+        reviews = parse_reviews(restaurant=restaurant_dict, headers=header)
         restaurant_dict["reviews"] = reviews
         if template1_done and not template2_done:
             while (len(list(restaurant_detail_info.children)) != 3) and (attempt < 1):
@@ -226,7 +220,7 @@ def page_parser2(file_path: str, header: dict[str:any],
                 attempt += 1
                 time.sleep(5)
             restaurant_dict = parse_template2(soup, restaurant_dict)
-    return restaurant_dict, html
+    return restaurant_dict
 
     
     
@@ -280,3 +274,15 @@ def parse_template2(soup: bs4.BeautifulSoup, restaurant: Restaurant)-> Restauran
     restaurant["details"]["ratings"] = {tag: rating for tag, rating in zip(ratings_tag, ratings_value)}
 
     return restaurant
+    
+def flatten_restaurant(restaurant: Restaurant)-> dict[any]:
+    flattened_restaurant = {key: restaurant[key] for key in restaurant.keys() if key not in  ["details", "opening_hours", "photos"]}
+    for key in restaurant["details"]:
+        flattened_restaurant[key] = restaurant["details"][key]
+    if restaurant.get('opening_hours') and isinstance(restaurant.get('opening_hours'), dict):
+        flattened_restaurant["opening_hours"] = {day: ', '.join(times) for day, times in restaurant['opening_hours'].items()}
+    else:
+        flattened_restaurant["opening_hours"] = "Non disponible"
+    flattened_restaurant["photos"] = list(restaurant['photos'])
+    return flattened_restaurant
+    

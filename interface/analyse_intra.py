@@ -3,6 +3,8 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context, get_monthly_review_trends
+from scraping_utils import is_URL, restaurant_scraper, headers, page_parser2, parse_reviews, flatten_restaurant
+import sqlite_utils
 
 ordered_months = [
     "janvier", "février", "mars", "avril", "mai", "juin",
@@ -167,7 +169,6 @@ def show_analyse_intra_restaurant():
     with col2:
         # Affichage du KPI 1 avec un style amélioré
         st.markdown('</br>', unsafe_allow_html=True)
-        
         url_to_scrape = st.text_input("URL to scrape", placeholder="http://www.tripadvisor.com")
         col2.markdown(f"""
             <div class="restaurant-info">
@@ -176,6 +177,7 @@ def show_analyse_intra_restaurant():
                 <div class="kpi-stars">{generate_stars(restaurant_details['AVERAGE_RATING'])}</div>
             </div>
         """, unsafe_allow_html=True)
+
 
     # Troisième colonne : Bloc KPI 2 (affichage du nombre total d'avis)
     with col3:
@@ -187,12 +189,16 @@ def show_analyse_intra_restaurant():
         positif = sentiment_distribution['Positif']
         neutre = sentiment_distribution['Neutre']
         negatif = sentiment_distribution['Négatif']
-
+        
+        col3_1, col3_2 = st.columns(2)
+        with col3_1:
+            st.markdown('<div style="height: 36px;"></div>', unsafe_allow_html=True)
+            start_scraping = st.button("start scraping")
+        with col3_2:
+            scraping_status = st.empty()
         # Affichage du KPI 2
         st.markdown('</br>', unsafe_allow_html=True)
         
-        st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
-        start_scraping = st.button("start scraping")
         #st.markdown('<div style="height: 28px;"></div>', unsafe_allow_html=True)
         col3.markdown(f"""
             <div class="restaurant-info">
@@ -367,3 +373,16 @@ def show_analyse_intra_restaurant():
 
         # Afficher le graphique
         st.plotly_chart(fig, use_container_width=True)
+
+
+    
+    if url_to_scrape and start_scraping:
+        if is_URL(url_to_scrape):
+            # restaurant_scraper(url_to_scrape, "./data", headers=headers)
+            scraping_status.markdown("Scraping in progress...")
+            restaurant = page_parser2(url_to_scrape, header=headers, review_parsing= True)
+            flattened_restaurant = flatten_restaurant(restaurant)
+            df = pd.DataFrame.from_dict(flattened_restaurant, orient='index').transpose()
+            db_tripadvisor = sqlite_utils.DButils(path="./", filename="tripadvisor.db", exists_ok=True)
+            db_tripadvisor.insert_restaurant(df)
+            scraping_status.markdown(f"Scraping done.")
