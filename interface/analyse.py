@@ -131,22 +131,20 @@ def get_restaurants_with_coordinates():
 # Ajouter la fonction d'extraction du type de cuisine
 def extract_cuisines(detail):
     try:
-        data = json.loads(detail)
-        cuisines = data#.get("CUISINES", "").strip("[]").replace('"', '').split(", ")
-        print(cuisines.keys())
-        # Enlever les espaces vides et les éléments vides dans la liste
-        # cuisines = [cuisine.strip() for cuisine in cuisines if cuisine.strip()]
-        
-        return cuisines["CUISINES"]
+        if detail is not None:
+            cuisines = json.loads(detail)
+            return cuisines["CUISINES"]
+        else:
+            return ["Non renseigné"]
     except Exception as e:
         print(f"Erreur lors de l'extraction des cuisines : {e}")
-        return []
+        return ["Non renseigné"]
 
 # Fonction pour récupérer les informations d'un restaurant
 def get_restaurant_details(restaurant_name):
     with sqlite3.connect(DB_PATH) as conn:
         query = """
-            SELECT r.ID_RESTAURANT, r.RESTAURANT_NAME, r.ADDRESS, r.SERVICES, pc.POSTAL_CODE, AVG(rv.REVIEW_SCORE) AS AVERAGE_RATING, r.PRICE_RANGE
+            SELECT r.ID_RESTAURANT, r.RESTAURANT_NAME, r.ADDRESS, r.SERVICES, pc.POSTAL_CODE, AVG(rv.REVIEW_SCORE) AS AVERAGE_RATING, r.PRICE_RANGE, r.PHONE_NUMBER
             FROM RESTAURANT r
             LEFT JOIN REVIEWS rv ON r.ID_RESTAURANT = rv.ID_RESTAURANT
             LEFT JOIN POSTAL_CODE pc ON r.POSTAL_CODE = pc.ID_POSTAL_CODE
@@ -156,9 +154,6 @@ def get_restaurant_details(restaurant_name):
         cursor = conn.cursor()
         cursor.execute(query, (restaurant_name,))
         row = cursor.fetchone()
-    
-    
-    
     # Extraire les cuisines du détail
     cuisines = extract_cuisines(row[3])  # row[3] correspond à la colonne DETAILS
     
@@ -170,6 +165,7 @@ def get_restaurant_details(restaurant_name):
         "POSTAL_CODE": row[4],
         "AVERAGE_RATING": round(row[5], 2) if row[5] else "N/A",
         "PRICE_RANGE": row[6],
+        "PHONE_NUMBER": row[7],
         "CUISINES": cuisines
         
     }

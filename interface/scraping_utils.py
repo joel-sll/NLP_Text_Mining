@@ -175,7 +175,7 @@ def page_parser2(file_path: str, header: dict[str:any],
     rank_info =  re.findall(r"\d+", restaurant_detail_info.select_one("div:nth-of-type(2) > span:nth-of-type(2)").text)
     restaurant_dict["ranking"] = {"rank": rank_info[0], "over": rank_info[1]}
 
-    print(len(list(restaurant_detail_info.children)))
+    # print(len(list(restaurant_detail_info.children)))
     if len(list(restaurant_detail_info.children)) == 2: # template #1
         restaurant_dict["price_range"] = restaurant_detail_info.select_one("div:nth-of-type(2) > span:nth-of-type(3) > span:last-of-type").text
         restaurant_dict = parse_template1(soup, restaurant_dict)
@@ -238,11 +238,11 @@ def parse_template1(soup: bs4.BeautifulSoup, restaurant: Restaurant) -> Restaura
 
     restaurant_info_tag = list(overview_tab[0].find("div", {"class":'NbOQL e'}).children)
     if len(restaurant_info_tag) == 4:
-        print(4)
+        # print(4)
         restaurant["details"]["traveler's choice"] = restaurant_info_tag[0].select_one("div > div:nth-child(1)").text
         restaurant["details"]["info"] = restaurant_info_tag[1].select_one("div > div:nth-child(1) > div:nth-child(1)").text
     else:
-        print(3)
+        # print(3)
         restaurant["details"]["Info"] = restaurant_info_tag[0].select_one("div:nth-child(1) > div:nth-child(1) > div:nth-child(1)").text
     fonctionnalites_tag =  [tag.text for tag in overview_tab[0].select("div > div.NbOQL.e > div.vtgrn.u.A.QA > div.BhTGV.e > div > div[class='kYFok f e Q1'] > div.biGQs._P.UFJyF.Wf")]
     fonctionnalites_values = [tag.find_next_sibling().text for tag in overview_tab[0].select("div > div.NbOQL.e > div.vtgrn.u.A.QA > div.BhTGV.e > div > div[class='kYFok f e Q1'] > div.biGQs._P.UFJyF.Wf")]

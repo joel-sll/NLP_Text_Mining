@@ -1,7 +1,7 @@
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
-from analyse import get_restaurants_with_coordinates, get_restaurant_details, get_photos_for_restaurant
+from analyse import get_restaurants_with_coordinates, get_restaurant_details#, get_photos_for_restaurant
 
 def show_carte():
     # Ajouter du CSS pour styliser le header
@@ -103,15 +103,17 @@ def show_carte():
                 <p style="font-size: 16px; color: #264653;">📮 Code postal: {restaurant['POSTAL_CODE']}</p>
                 <p style="font-size: 16px; color: #264653;">⭐ Note moyenne: {restaurant['AVERAGE_RATING']} / 5</p>
                 <p style="font-size: 16px; color: #264653;">🍽️ Cuisine: {restaurant['CUISINES']}</p>
-                <p style="font-size: 16px; color: #264653;">📞 Téléphone: {restaurant['PHONE_NUMBER']}</p>
+                <p style="font-size: 16px; color: #264653;">📞 Téléphone: {restaurant.get('PHONE_NUMBER', "Non renseigné")}</p>
             </div>
             """
             # Afficher le bloc avec les informations du restaurant
             st.markdown(restaurant_info, unsafe_allow_html=True)
+            
 
     # Nouveaux blocs en bas pour les photos
     st.markdown("<h3 style='font-weight:bold; text-align:center;'>📸 Photos du restaurant</h3>", unsafe_allow_html=True)
-    photos = get_photos_for_restaurant(restaurant['RESTAURANT_NAME']) if 'selected_restaurant' in st.session_state else []
+    photos = False
+    # photos = get_photos_for_restaurant(restaurant['RESTAURANT_NAME']) if 'selected_restaurant' in st.session_state else []
 
     if photos:
         # Afficher les photos deux à deux horizontalement

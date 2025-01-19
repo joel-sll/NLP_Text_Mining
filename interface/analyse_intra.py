@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context, get_monthly_review_trends
+from analyse import load_restaurant_names, get_restaurant_details, get_total_reviews_for_restaurant, get_top_reviews_for_restaurant, get_sentiment_distribution_for_restaurant, get_sentiment_distribution_by_visit_context, get_monthly_review_trends, update_restaurant_coordinates
 from scraping_utils import is_URL, restaurant_scraper, headers, page_parser2, parse_reviews, flatten_restaurant
 import sqlite_utils
 
@@ -306,7 +306,7 @@ def show_analyse_intra_restaurant():
                 st.selectbox("Mois", options=["Tous"], index=0, disabled=True)
         # Appeler la fonction pour récupérer les données
         trends_data = get_monthly_review_trends(selected_restaurant_name, year, month)
-        print(trends_data["REVIEW_MONTH"].unique())
+        # print(trends_data["REVIEW_MONTH"].unique())
         trends_data["month_idx"] = trends_data["REVIEW_MONTH"].apply(lambda x:ordered_months.index(x))
         trends_data = trends_data.sort_values("month_idx")
 
@@ -385,4 +385,5 @@ def show_analyse_intra_restaurant():
             df = pd.DataFrame.from_dict(flattened_restaurant, orient='index').transpose()
             db_tripadvisor = sqlite_utils.DButils(path="./", filename="tripadvisor.db", exists_ok=True)
             db_tripadvisor.insert_restaurant(df)
+            update_restaurant_coordinates()
             scraping_status.markdown(f"Scraping done.")
