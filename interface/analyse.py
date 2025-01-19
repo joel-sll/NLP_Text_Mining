@@ -5,33 +5,21 @@ from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
 from textblob import TextBlob
 import matplotlib.pyplot as plt
-import plotly.express as px
+from collections import Counter
+import streamlit as st
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+import re
+import spacy
+from nltk.corpus import stopwords
 
 # Load database
 DB_PATH = "./tripadvisor.db"
 
-# with sqlite3.connect(DB_PATH) as conn:
-    # cursor = conn.cursor()
-    # cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    # tables = cursor.fetchall()
-    # print("Tables dans la base de données :", tables)
-    # for table in tables:
-        # cursor.execute(f"PRAGMA table_info({table[0]});")
-        # columns_info = cursor.fetchall()
-
-        #Extract column names
-        # columns = [column[1] for column in columns_info]  # column[1] corresponds to the 'name' field
-        # print(f"{table} : Columns:{columns}")
-
-with sqlite3.connect(DB_PATH) as conn:
-    query = "SELECT * FROM reviews"
-    data = pd.read_sql_query(query, conn)
-
-# Fonction qui calcule note moyenne et l'affiche avec le nom du restaurant
-# Fonction modifiée pour ne récupérer que la note moyenne
 def get_average_rating_per_restaurant():
     """
-    Calcule la note moyenne de chaque restaurant sans les autres détails.
+    Calculates the average rating for each restaurant without including other details.
+    The result is ordered by the average rating in descending order.
     """
     query = """
         SELECT 
@@ -55,18 +43,22 @@ def get_average_rating_per_restaurant():
     
     return [{"Restaurant Name": row[0], "Average Rating": round(row[1], 2)} for row in rows]
 
-# top 5 restaurants
+
 def get_top_5_restaurants():
     """
-    Cette fonction récupère les restaurants, les trie par note moyenne et retourne les 5 premiers restaurants.
+    This function retrieves the restaurants, sorts them by average rating, 
+    and returns the top 5 restaurants with the highest ratings.
     """
     average_ratings = get_average_rating_per_restaurant()
     sorted_ratings = sorted(average_ratings, key=lambda x: x['Average Rating'], reverse=True)
 
     return sorted_ratings[:5]
 
-# Fonction pour récupérer les noms de restaurants depuis la base de données
+
 def load_restaurant_names():
+    """
+    This function retrieves all restaurant names from the database.
+    """
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         query = "SELECT RESTAURANT_NAME FROM RESTAURANT"
@@ -74,12 +66,12 @@ def load_restaurant_names():
         restaurant_names = [row[0] for row in cursor.fetchall()]
     return restaurant_names
 
-#Fonction pour récupérer les années dans la table reviews
 
-#Fonction pour récupérer les mois dans la table reviews
-
-# Ajouter des colonnes latitude et longitude si elles n'existent pas
 def ensure_lat_lon_columns():
+    """
+    This function adds 'latitude' and 'longitude' columns to the 'restaurant' table if they do not already exist.
+    If the columns already exist, the function does nothing.
+    """
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         try:
@@ -88,8 +80,12 @@ def ensure_lat_lon_columns():
         except sqlite3.OperationalError:
             pass 
 
-# Récupérer les coordonnées géographiques d'une adresse
+
 def get_coordinates(address):
+    """
+    This function retrieves the geographical coordinates (latitude and longitude) for a given address.
+    If the address is valid, it returns the coordinates. If not, it returns None for both latitude and longitude.
+    """
     geolocator = Nominatim(user_agent="restaurant_geocoder")
     try:
         location = geolocator.geocode(address, timeout=10)
@@ -99,8 +95,14 @@ def get_coordinates(address):
     except GeocoderTimedOut:
         return None, None
 
-# Mettre à jour les coordonnées géographiques dans la base de données
+
 def update_restaurant_coordinates():
+    """
+    This function updates the geographical coordinates (latitude and longitude) 
+    for each restaurant in the database based on its address, postal code, and city.
+    It first ensures that the latitude and longitude columns exist, then fetches the required data,
+    geocodes the addresses, and updates the database with the retrieved coordinates.
+    """
     ensure_lat_lon_columns()
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
@@ -125,8 +127,12 @@ def update_restaurant_coordinates():
 
         conn.commit()
 
-# Récupérer les restaurants avec leurs coordonnées
+
 def get_restaurants_with_coordinates():
+    """
+    This function retrieves restaurants from the database that have valid geographical coordinates (latitude and longitude).
+    It returns a DataFrame containing the restaurant names, IDs, and their corresponding coordinates.
+    """
     with sqlite3.connect(DB_PATH) as conn:
         query = """
             SELECT RESTAURANT_NAME, ID_RESTAURANT, latitude, longitude
@@ -135,8 +141,12 @@ def get_restaurants_with_coordinates():
         """
         return pd.read_sql_query(query, conn)
 
-# Ajouter la fonction d'extraction du type de cuisine
+
 def extract_cuisines(detail):
+    """
+    This function extracts the list of cuisines from the provided 'detail' JSON string.
+    If the 'detail' is valid, it returns the cuisines. If not, it returns a default value of ["Non renseigné"].
+    """
     try:
         if detail is not None:
             cuisines = json.loads(detail)
@@ -147,8 +157,13 @@ def extract_cuisines(detail):
         print(f"Erreur lors de l'extraction des cuisines : {e}")
         return ["Non renseigné"]
 
-# Fonction pour récupérer les informations d'un restaurant
+
 def get_restaurant_details(restaurant_name):
+    """
+    This function retrieves detailed information about a restaurant, including its name, address, services, 
+    postal code, average rating, price range, phone number, and cuisine types from the database.
+    The data is returned as a dictionary.
+    """
     with sqlite3.connect(DB_PATH) as conn:
         query = """
             SELECT r.ID_RESTAURANT, r.RESTAURANT_NAME, r.ADDRESS, r.SERVICES, pc.POSTAL_CODE, AVG(rv.REVIEW_SCORE) AS AVERAGE_RATING, r.PRICE_RANGE, r.PHONE_NUMBER
@@ -161,8 +176,7 @@ def get_restaurant_details(restaurant_name):
         cursor = conn.cursor()
         cursor.execute(query, (restaurant_name,))
         row = cursor.fetchone()
-    # Extraire les cuisines du détail
-    cuisines = extract_cuisines(row[3])  # row[3] correspond à la colonne DETAILS
+    cuisines = extract_cuisines(row[3])
     
     return {
         "ID_RESTAURANT": row[0],
@@ -177,8 +191,12 @@ def get_restaurant_details(restaurant_name):
         
     }
 
-# Fonction pour récupérer le nombre total d'avis pour un restaurant
+
 def get_total_reviews_for_restaurant(restaurant_name):
+    """
+    This function retrieves the total number of reviews for a specific restaurant.
+    It performs a join between the REVIEWS and RESTAURANT tables and counts the number of reviews for the given restaurant name.
+    """
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         query = """
@@ -191,10 +209,12 @@ def get_total_reviews_for_restaurant(restaurant_name):
         total_reviews = cursor.fetchone()[0]
     return total_reviews
 
-#====================== SENTIMENT ANALYSIS
 
-# Fonction pour récupérer les meilleurs commentaires pour un restaurant
 def get_top_reviews_for_restaurant(restaurant_id, limit=3):
+    """
+    This function retrieves the top reviews for a specific restaurant, ordered by review score in descending order.
+    It returns a list of the best reviews, with a default limit of 3 reviews.
+    """
     with sqlite3.connect(DB_PATH) as conn:
         query = """
             SELECT REVIEW_TITLE, REVIEW_BODY, REVIEW_SCORE
@@ -210,10 +230,11 @@ def get_top_reviews_for_restaurant(restaurant_id, limit=3):
     top_reviews = [{"title": row[0], "body": row[1], "score": row[2]} for row in rows]
     return top_reviews
 
-# Fonction pour récupérer la distribution des scores de commentaires
+
 def get_review_score_distribution(restaurant_name):
     """
-    Calcule la distribution des scores des commentaires pour un restaurant spécifique.
+    This function calculates the distribution of review scores for a specific restaurant.
+    It retrieves the review scores and returns them as a list.
     """
     query = """
         SELECT rv.REVIEW_SCORE
@@ -226,28 +247,28 @@ def get_review_score_distribution(restaurant_name):
         cursor.execute(query, (restaurant_name,))
         scores = cursor.fetchall()
 
-    # Extraire les scores
     score_list = [score[0] for score in scores]
     return score_list
 
-# Fonction pour analyser la distribution des sentiments
+
 def analyze_sentiment(text):
     """
-    Analyse le sentiment d'un texte et retourne 'Positif', 'Neutre' ou 'Négatif'.
+    This function analyzes the sentiment of a given text and returns 'Positive', 'Neutral', or 'Negative'.
+    It uses TextBlob to calculate the sentiment polarity and classify the sentiment accordingly.
     """
     polarity = TextBlob(text).sentiment.polarity
-    if polarity > 0.1:  # Positif si la polarité est significativement au-dessus de zéro
+    if polarity > 0.1:  
         return 'Positif'
-    elif polarity < -0.1:  # Négatif si la polarité est significativement en dessous de zéro
+    elif polarity < -0.1: 
         return 'Négatif'
-    else:  # Neutre sinon
+    else:
         return 'Neutre'
 
 
 def get_sentiment_distribution_for_restaurant(restaurant_name):
     """
-    Analyse les sentiments des avis pour un restaurant donné.
-    Retourne la distribution des sentiments (Positif, Neutre, Négatif).
+    This function analyzes the sentiment of reviews for a given restaurant and returns the distribution of sentiments 
+    (Positive, Neutral, Negative).
     """
     query = """
         SELECT rv.REVIEW_BODY
@@ -269,11 +290,11 @@ def get_sentiment_distribution_for_restaurant(restaurant_name):
         'Négatif': sentiment_counts.get('Négatif', 0)
     }
 
-# Analyse avis selon visit_context
+
 def get_sentiment_distribution_by_visit_context(restaurant_name):
     """
-    Analyse les sentiments des avis pour chaque type de VISIT_CONTEXT pour un restaurant donné.
-    Retourne la distribution des sentiments par contexte de visite (Positif, Neutre, Négatif).
+    This function analyzes the sentiment of reviews for each type of VISIT_CONTEXT for a given restaurant. 
+    It returns the sentiment distribution (Positive, Neutral, Negative) by visit context.
     """
     query = """
         SELECT rv.REVIEW_BODY, rv.VISIT_CONTEXT
@@ -299,11 +320,11 @@ def get_sentiment_distribution_by_visit_context(restaurant_name):
 
     return sentiment_by_context
 
-#recuperer avis selon sentiments
+
 def get_reviews_by_sentiment(restaurant_name, sentiment):
     """
-    Récupère les avis pour un restaurant donné et filtre selon le sentiment spécifié.
-    Retourne une liste d'avis correspondant à ce sentiment.
+    This function retrieves reviews for a given restaurant and filters them based on the specified sentiment.
+    It returns a list of reviews that match the specified sentiment (Positive, Neutral, or Negative).
     """
     query = """
         SELECT rv.REVIEW_BODY, rv.REVIEW_TITLE, rv.REVIEW_SCORE
@@ -330,14 +351,14 @@ def get_reviews_by_sentiment(restaurant_name, sentiment):
     return filtered_reviews
 
 
-
-
-#------------------------ TENDANCE ANALYSIS
-# Fonction pour récupérer les notes moyennes filtrées
 def get_monthly_review_trends(restaurant_name, year, month):
-    # Connexion à la base de données
+    """
+    This function retrieves the monthly review trends for a given restaurant, including the average score and 
+    the number of reviews, filtered by year and month if provided.
+    Returns a DataFrame with the monthly review trends.
+    """
     with sqlite3.connect(DB_PATH) as conn:
-        # Définition de la requête SQL
+
         query = """
             SELECT r.REVIEW_YEAR, r.REVIEW_MONTH, AVG(r.REVIEW_SCORE) as average_score, COUNT(r.REVIEW_SCORE) as n_review
             FROM reviews r
@@ -348,7 +369,67 @@ def get_monthly_review_trends(restaurant_name, year, month):
             GROUP BY r.REVIEW_YEAR, r.REVIEW_MONTH
             ORDER BY r.REVIEW_YEAR, r.REVIEW_MONTH;
         """
-        # Exécution de la requête et récupération des résultats dans un DataFrame
         df = pd.read_sql_query(query, conn, params=(restaurant_name, year, year, month, month))
         
     return df
+
+# Load the French language model for spaCy
+nlp = spacy.load('fr_core_news_sm')
+
+# List of NLTK stopwords for French and additional words to exclude
+french_stopwords = set(stopwords.words('french'))
+additional_stopwords = {'et', 'de', 'un', 'le', 'la', 'les', 'des', 'est', 'très', 'pour'}
+french_stopwords.update(additional_stopwords)
+
+def clean_text(text):
+    """
+    Cleans the input text by performing the following operations:
+    - Converts the text to lowercase.
+    - Removes numbers and punctuation.
+    - Lemmatizes the text using spaCy.
+    - Filters out stopwords based on a custom stopword list.
+    
+    Returns the cleaned text as a string.
+    """
+    text = text.lower() 
+    text = re.sub(r'\d+', '', text)
+    text = re.sub(r'[^\w\s]', '', text)
+    
+    # Process the text using spaCy (tokenization and lemmatization)
+    doc = nlp(text)
+    
+    # Filter out stopwords, punctuation, and spaces, and lemmatize the remaining tokens
+    cleaned_text = ' '.join([token.lemma_ for token in doc if token.text not in french_stopwords and not token.is_punct and not token.is_space])
+    
+    return cleaned_text
+
+
+def generate_wordcloud(restaurant_name):
+    """
+    Generates a word cloud based on the positive reviews of a given restaurant.
+    - Retrieves positive reviews using `get_reviews_by_sentiment`.
+    - Cleans the reviews using `clean_text`.
+    - Counts the most frequent words and generates a word cloud.
+
+    Args:
+    - restaurant_name (str): The name of the restaurant for which to generate the word cloud.
+    """
+    
+    positive_reviews = get_reviews_by_sentiment(restaurant_name, "Positif")
+    positive_reviews_text = ' '.join([review['body'] for review in positive_reviews])
+    
+    cleaned_text = clean_text(positive_reviews_text)
+    
+    words = cleaned_text.split()
+    word_counts = Counter(words)
+    
+    most_common_words = word_counts.most_common(20)
+    word_freq = {item[0]: item[1] for item in most_common_words}
+    
+    wordcloud = WordCloud(width=800, height=400, background_color='white').generate_from_frequencies(word_freq)
+    
+    # Display the word cloud using matplotlib
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wordcloud, interpolation='bilinear')
+    plt.axis('off')
+    st.pyplot(plt)

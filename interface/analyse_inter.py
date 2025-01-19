@@ -1,5 +1,3 @@
-
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -56,7 +54,7 @@ with sqlite3.connect(DB_PATH) as conn:
     df = pd.read_sql_query(query, conn)
     df["CLAIMED"] = df["CLAIMED"].apply(lambda x: (x[0] !=0) if isinstance(x, bytes) else x)
     
-# Streamlit App
+
 def show_analyse_inter_restaurant():
     st.markdown(""" 
         <style>
@@ -109,7 +107,7 @@ def show_analyse_inter_restaurant():
     restaurant_groups = df.groupby('RESTAURANT_NAME')
     total_reviews = restaurant_groups['REVIEW_SCORE'].count().reset_index()
 
-    # Horizontal bar plot for total reviews by restaurant with different style
+    # Horizontal bar plot for total reviews by restaurant
     st.write("### Nombre Total d'Avis pour Chaque Restaurant")
 
     fig_bar_reviews_horizontal = px.bar(
@@ -119,43 +117,38 @@ def show_analyse_inter_restaurant():
         orientation='h',
         title='Nombre Total d\'Avis pour Chaque Restaurant',
         labels={'RESTAURANT_NAME': 'Restaurant', 'REVIEW_SCORE': 'Nombre d\'Avis'},
-        color='REVIEW_SCORE',  # Colorier en fonction du nombre d'avis
-        color_continuous_scale='RdYlGn',  # Palette de couleurs plus vive (Rouge - Jaune - Vert)
-        text='REVIEW_SCORE',  # Affiche le nombre d'avis sur chaque barre
+        color='REVIEW_SCORE',
+        color_continuous_scale='RdYlGn',
+        text='REVIEW_SCORE',
     )
 
-    # Personnalisation du graphique
     fig_bar_reviews_horizontal.update_layout(
         xaxis_title='Nombre d\'Avis',
         yaxis_title='Restaurant',
         xaxis_tickangle=0,
-        yaxis_tickangle=0,  # Ajuste les labels des restaurants pour qu'ils ne se chevauchent pas
-        plot_bgcolor='#f4f4f9',  # Fond clair
-        paper_bgcolor='#f4f4f9',  # Papier du graphique
+        yaxis_tickangle=0,
+        plot_bgcolor='#f4f4f9', 
+        paper_bgcolor='#f4f4f9',
         margin=dict(t=60, b=30, l=30, r=30),
-        showlegend=False,  # Cache la légende pour plus de lisibilité
+        showlegend=False,
     )
 
-    # Personnalisation des barres (ajout d'un arrondi, espacement plus large)
     fig_bar_reviews_horizontal.update_traces(
-        texttemplate='%{text}',  # Afficher le nombre d'avis sur les barres
-        textposition='inside',  # Position du texte à l'intérieur des barres
+        texttemplate='%{text}',
+        textposition='inside',
     )
 
     st.plotly_chart(fig_bar_reviews_horizontal, use_container_width=True)
 
-    # Ajout du filtre année
     years = df['REVIEW_YEAR'].unique()
     selected_year = st.selectbox('Sélectionner une année', years)
 
-    # Filtrer les données selon l'année sélectionnée
     df_year_filtered = df[df['REVIEW_YEAR'] == selected_year]
 
-    # Group by restaurant name and calculate average scores for the selected year
     restaurant_groups = df_year_filtered.groupby('RESTAURANT_NAME')
     avg_scores = restaurant_groups['REVIEW_SCORE'].mean().reset_index()
 
-    # Graphique en barres des scores moyens par restaurant
+    # Average score per restaurant
     st.write(f"### Scores Moyens des Restaurants pour l'Année {selected_year}")
     fig_avg_scores_year = px.bar(
         avg_scores,
@@ -169,14 +162,13 @@ def show_analyse_inter_restaurant():
     fig_avg_scores_year.update_layout(
         xaxis_title='Restaurant',
         yaxis_title='Score Moyen',
-        xaxis_tickangle=45,  # Pour incliner les labels sur l'axe des X
+        xaxis_tickangle=45,
         plot_bgcolor='#f9f9f9',
         paper_bgcolor='#f9f9f9',
         margin=dict(t=60, b=60, l=30, r=30),
     )
     st.plotly_chart(fig_avg_scores_year, use_container_width=True)
 
-    # Select restaurants
     st.write("### Sélectionnez les restaurants à comparer")
     selected_restaurants = st.multiselect("Restaurants disponibles", restaurant_groups.groups.keys())
 
@@ -230,7 +222,6 @@ def show_analyse_inter_restaurant():
         overwrite=True
     ))
 
-    # Visualisation des Scores Moyens
     st.write("### Visualisations des Scores Moyens")
     fig_avg_scores = px.bar(
         comparison_df.reset_index(),
@@ -255,11 +246,11 @@ def show_analyse_inter_restaurant():
     )
     st.plotly_chart(fig_avg_scores, use_container_width=True)
 
-    # Visualisation par restaurant
+
     for name in selected_restaurants:
         analysis = restaurant_analyses[name]
 
-        # Distribution des Sentiments
+        # Sentiment distribution
         st.markdown(f"### Distribution des Sentiments pour {name}")
         with st.container():
             fig_sentiments = px.histogram(
@@ -278,7 +269,7 @@ def show_analyse_inter_restaurant():
             )
             st.plotly_chart(fig_sentiments)
 
-        # Fréquences des mots
+        # Word frequency
         st.markdown(f"### Top Mots dans les Avis pour {name}")
         with st.container():
             words, counts = zip(*analysis['word_frequencies'].items())
@@ -302,7 +293,7 @@ def show_analyse_inter_restaurant():
             )
             st.plotly_chart(fig_word_freq)
 
-            # Génération du WordCloud
+            # WordCloud
             st.markdown(f"### Nuage de Mots pour {name}")
             wordcloud = WordCloud(
                 width=800, 
@@ -311,13 +302,11 @@ def show_analyse_inter_restaurant():
                 colormap='YlGnBu'
             ).generate_from_frequencies(analysis['word_frequencies'])
 
-            # Affichage du WordCloud
             fig_wc = plt.figure(figsize=(8, 4))
             plt.imshow(wordcloud, interpolation='bilinear')
             plt.axis('off')
             st.pyplot(fig_wc)
 
-        # Mentions des Aspects
         st.markdown(f"### Mentions des Aspects pour {name}")
         with st.container():
             aspects, counts = zip(*analysis['stats']['aspect_mentions'].items())

@@ -4,7 +4,6 @@ from streamlit_folium import st_folium
 from analyse import get_restaurants_with_coordinates, get_restaurant_details#, get_photos_for_restaurant
 
 def show_carte():
-    # Ajouter du CSS pour styliser le header
     st.markdown("""
         <style>
             .header {
@@ -41,38 +40,31 @@ def show_carte():
         </style>
     """, unsafe_allow_html=True)
 
-    # Titre avec le style appliqué
     st.markdown('<div class="header">Carte interactive</div>', unsafe_allow_html=True)
+    st.markdown('</br>', unsafe_allow_html=True)
 
-    # Ajouter un espacement entre le header et la carte
-    st.markdown('</br>', unsafe_allow_html=True)  # Ajoute un double saut de ligne pour créer de l'espace
+    col_left, col_right = st.columns([2, 1])
 
-    # Utiliser des colonnes pour diviser la page
-    col_left, col_right = st.columns([2, 1])  # 2/3 pour la carte, 1/3 pour l'autre contenu
-
+    # Map
     with col_left:
-        # Carte interactive
         restaurants = get_restaurants_with_coordinates()
         if not restaurants.empty:
             map_center = [restaurants['latitude'].mean(), restaurants['longitude'].mean()]
             m = folium.Map(location=map_center, zoom_start=12)
 
-            # Ajout des marqueurs avec une interaction
             for _, row in restaurants.iterrows():
-                icon = folium.Icon(icon="cutlery", prefix="fa", color="red")  # Utilise l'icône "cutlery" de FontAwesome
+                icon = folium.Icon(icon="cutlery", prefix="fa", color="red")
                 folium.Marker(
                     location=[row['latitude'], row['longitude']],
                     popup=row['RESTAURANT_NAME'],
                     icon=icon,
-                    tooltip=row['RESTAURANT_NAME']  # Le tooltip contient le nom du restaurant
+                    tooltip=row['RESTAURANT_NAME']
                 ).add_to(m)
 
-            # Intégration de la carte dans le left-block
             selected_marker = st_folium(m, width=700, height=500, key="map")
 
-            # Vérification si un restaurant a été sélectionné
+
             if selected_marker and 'last_object_clicked_tooltip' in selected_marker:
-                # Extraire le nom du restaurant à partir de 'last_object_clicked_tooltip'
                 selected_restaurant_name = selected_marker['last_object_clicked_tooltip']
                 if selected_restaurant_name:
                     restaurant_details = get_restaurant_details(selected_restaurant_name)
@@ -82,6 +74,7 @@ def show_carte():
         else:
             st.write("Aucune donnée géographique disponible.")
 
+    # Restaurant details
     with col_right:
         st.markdown("""
                     <h1 class="header-text" 
@@ -95,7 +88,6 @@ def show_carte():
         if 'selected_restaurant' in st.session_state:
             restaurant = st.session_state.selected_restaurant
             
-            # HTML pour ajouter un bloc avec une couleur de fond et un peu de style
             restaurant_info = f"""
             <div style="background-color: #f0f8ff; padding: 15px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); font-family: New Icon">
                 <h3 style="color: #2a9d8f;">🏢 {restaurant['RESTAURANT_NAME']}</h3>
@@ -106,20 +98,16 @@ def show_carte():
                 <p style="font-size: 16px; color: #264653;">📞 Téléphone: {restaurant.get('PHONE_NUMBER', "Non renseigné")}</p>
             </div>
             """
-            # Afficher le bloc avec les informations du restaurant
             st.markdown(restaurant_info, unsafe_allow_html=True)
             
 
-    # Nouveaux blocs en bas pour les photos
+    # Photos on comments
     st.markdown("<h3 style='font-weight:bold; text-align:center;'>📸 Photos du restaurant</h3>", unsafe_allow_html=True)
     photos = False
     # photos = get_photos_for_restaurant(restaurant['RESTAURANT_NAME']) if 'selected_restaurant' in st.session_state else []
 
     if photos:
-        # Afficher les photos deux à deux horizontalement
         photo_pairs = [photos[i:i + 2] for i in range(0, len(photos), 2)]
-
-        # Créer une ligne pour les photos
         for pair in photo_pairs:
             col1, col2 = st.columns(2)
             with col1:
